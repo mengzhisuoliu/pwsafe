@@ -5,7 +5,7 @@
 ; first edit : Karlo Van der Gucht
 ;---------------------------------------------------
 ; Copyright 2004, David Lacy Kusters (dkusters@yahoo.com)
-; Copyright 2005-2023 Rony Shapiro <ronys@pwsafe.org>
+; Copyright 2005-2025 Rony Shapiro <ronys@pwsafe.org>
 ; 2009 extended by Karlo Van der Gucht for multiple language use
 ; 2010 extended by Karlo Van der Gucht Danish language
 ; This script may be redistributed and/or modified under the Artistic
@@ -122,6 +122,10 @@ LangString TURKISH_SUPPORT ${LANG_DUTCH} "Turks"
 LangString HUNGARIAN_SUPPORT ${LANG_DUTCH} "Hongaars"
 LangString SLOVENIAN_SUPPORT ${LANG_DUTCH} "Slovenian"
 LangString ARABIC_SUPPORT ${LANG_DUTCH} "Arabisch"
+; PORTUGUESEBR_SUPPORT "Portuguese (Brazil)"
+LangString PORTUGUESEBR_SUPPORT ${LANG_DUTCH} "Portugees (Brazilië)"
+LangString LATVIAN_SUPPORT ${LANG_DUTCH} "Lets"
+
 
 ; LANG_PROGRAM "Program Language"
 LangString LANG_PROGRAM ${LANG_DUTCH} "Programma-taal"
@@ -143,6 +147,20 @@ LangString Icon_description_Uninstall ${LANG_DUTCH} "Password Safe Uninstall"
 
 ; LangString Icon_description_Help  "Password Safe Help"
 LangString Icon_description_Help ${LANG_DUTCH} "Password Safe Help"
+
+; Screen Capture Protection texts:
+; LangString SCRCAP_PROTECTION "Screen capture protection"
+LangString SCRCAP_PROTECTION ${LANG_DUTCH} "Bescherming voor schermopname"
+
+; LangString SORRY_CANNOT_DISABLE_SCRCAP  "An error occurred disabling screen capture protection. Screen capture protection is not disabled."
+LangString SORRY_CANNOT_DISABLE_SCRCAP ${LANG_DUTCH} "Er is een fout opgetreden bij het uitschakelen van de schermopnamebeveiliging. De schermopnamebeveiliging is niet uitgeschakeld."
+
+; LangString SORRY_CANNOT_ENABLE_SCRCAP "An error occurred setting screen capture protection to default (enabled)."
+LangString SORRY_CANNOT_ENABLE_SCRCAP ${LANG_DUTCH} "Er is een fout opgetreden bij het instellen van de schermopnamebeveiliging op standaard (ingeschakeld)."
+
+; LangString DESC_ScrCapProtection "Enables screen capture protection."
+LangString DESC_ScrCapProtection ${LANG_DUTCH} "Schakelt schermopnamebeveiliging in."
+
 
 ;=================================================================
 ; End of pwsafe_nl.lng

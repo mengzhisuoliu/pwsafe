@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -42,6 +42,7 @@ protected:
   BOOL m_LockOnWindowLock;
   BOOL m_LockOnIdleTimeout;
   BOOL m_CopyPswdBrowseURL;
+  BOOL m_ExcludeFromScreenCapture;
   int m_IdleTimeOut;
   //}}AFX_DATA
 
@@ -50,7 +51,7 @@ protected:
   uint32 m_HashIter;
 
   CButtonExtn m_chkbox[2];
-  CTBMStatic m_Help1, m_Help2, m_Help3;
+  CTBMStatic m_Help1, m_Help2, m_Help3, m_Help4;
 
   // Overrides
   // ClassWizard generate virtual function overrides

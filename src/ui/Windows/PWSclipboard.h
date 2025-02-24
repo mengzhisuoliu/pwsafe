@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -23,6 +23,13 @@
 
 #include "core/StringX.h"
 
+enum ClipboardStatus {
+  Error,
+  ClipboardNotAvailable,
+  SuccessSensitiveNotPresent,
+  SuccessSensitivePresent
+};
+
 class PWSclipboard
 {
 public:
@@ -34,10 +41,10 @@ public:
     bool isSensitive = true,
     CLIPFORMAT cfFormat = CLIPBOARD_TEXT_FORMAT);
   // returns true if succeeded
-  bool ClearCBData(); // return true if cleared or if data wasn't ours
-
+  ClipboardStatus ClearCBData(); // return true if cleared or if data wasn't ours
+  ClipboardStatus GetLastSensitiveItemPresent();
 private:
-  bool m_set;
+  bool m_bSensitiveDataOnClipboard;
   unsigned char m_digest[SHA256::HASHLEN];
 };
 

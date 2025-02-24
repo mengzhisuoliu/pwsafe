@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -23,6 +23,8 @@
 #include "ThisMfcApp.h"
 #include "GeneralMsgBox.h"
 #include "RichEditCtrlExtn.h"
+#include "PWDialog.h"
+
 #include "winutils.h"
 #include <RichEdit.h>
 
@@ -36,6 +38,8 @@ static char THIS_FILE[] = __FILE__;
 
 /////////////////////////////////////////////////////////////////////////////
 // Local constants
+
+const UINT TIMER_GENMSGBOX_ENABLE_CONTROLS = 1;
 
 /*
 The following _dlgData corresponds to:
@@ -62,7 +66,7 @@ DLGTEMPLATEEX dtex;
   typeface                  "
 */
 
-static const BYTE _dlgData[] =
+static const BYTE dlg_data[] =
 {
   0x01, 0x00,                                      // wDlgVer (must be on DWORD boundary)
   0xff, 0xff,                                      // wSignature
@@ -82,10 +86,8 @@ static const BYTE _dlgData[] =
   0x00,                                            // italic
   0x01,                                            // charset
   // typeface (must be on WORD boundary)
-  0x4d, 0x00, 0x53, 0x00, 0x20, 0x00, 0x53, 0x00,  // 'MS S'
-  0x61, 0x00, 0x6e, 0x00, 0x73, 0x00, 0x20, 0x00,  // 'ans '
-  0x53, 0x00, 0x65, 0x00, 0x72, 0x00, 0x69, 0x00,  // 'Seri'
-  0x66, 0x00, 0x00, 0x00                           // 'f\0'
+  0x54, 0x00, 0x61, 0x00, 0x68, 0x00, 0x6f, 0x00,  // 'Taho'
+  0x6d, 0x00, 0x61, 0x00, 0x00, 0x00               // 'ma\0'
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -94,7 +96,8 @@ static const BYTE _dlgData[] =
 // Constructor
 CGeneralMsgBox::CGeneralMsgBox(CWnd *pParentWnd)
   : m_uiDefCmdId((UINT)IDC_STATIC), m_uiEscCmdId((UINT)IDC_STATIC),
-  m_hIcon(NULL), m_strTitle(AfxGetApp()->m_pszAppName)
+  m_hIcon(nullptr), m_strTitle(AfxGetApp()->m_pszAppName),
+  m_bDelayAcceptAnswer(false), m_bTextBeforeAllowedSet(false)
 {
   m_pParentWnd = pParentWnd;
 
@@ -138,8 +141,8 @@ INT_PTR CGeneralMsgBox::MessageBoxTimeOut(LPCWSTR lpText, LPCWSTR lpCaption,
   m_nResult = 0;
 
   DWORD dwThreadId;
-  HANDLE hThread = CreateThread(NULL, 0, ThreadFunction, (LPVOID)this, 0, &dwThreadId);
-  if (hThread == NULL)
+  HANDLE hThread = CreateThread(nullptr, 0, ThreadFunction, (LPVOID)this, 0, &dwThreadId);
+  if (hThread == nullptr)
     return -1;
 
   m_nResult = MessageBox(lpText, lpCaption, uiFlags);
@@ -177,18 +180,26 @@ DWORD WINAPI CGeneralMsgBox::ThreadFunction(LPVOID lpParameter)
   return WAIT_OBJECT_0;
 }
 
-INT_PTR CGeneralMsgBox::MessageBox(LPCWSTR lpText, LPCWSTR lpCaption, 
-                                   UINT uiFlags)
+void CGeneralMsgBox::EnableButtons(bool bEnable)
 {
-  // Private member
-  UINT uiType = uiFlags & MB_TYPEMASK;
-  UINT uiIcon = uiFlags & MB_ICONMASK;
-  int iDefB = ((int)uiFlags & MB_DEFMASK) / 256;
+  for (int i = 0; i < m_aBtns.GetSize(); ++i) {
+    CButton& btn = *(CButton*)GetDlgItem(m_aBtns[i].uiIDC);
+    if (!::IsWindow(btn.m_hWnd))
+      continue;
+    if (!bEnable) {
+      m_aBtns[i].bWasEnabled = !(btn.GetStyle() & WS_DISABLED);
+      btn.ModifyStyle(0, WS_DISABLED);
+    } else if (m_aBtns[i].bWasEnabled)
+      btn.ModifyStyle(WS_DISABLED, 0);
+  }
+}
 
-  if (lpText != NULL)
-    SetMsg(lpText);
+INT_PTR CGeneralMsgBox::AfxMessageBox(LPCWSTR lpszText, LPCWSTR lpCaption, const std::vector<std::tuple<int, int>>& tuples, int defBtn, UINT uiIcon)
+{
+  if (lpszText != nullptr)
+    SetMsg(lpszText);
 
-  if (lpCaption != NULL)
+  if (lpCaption != nullptr)
     SetTitle(lpCaption);
   else
     SetTitle(IDS_ERROR);
@@ -197,105 +208,93 @@ INT_PTR CGeneralMsgBox::MessageBox(LPCWSTR lpText, LPCWSTR lpCaption,
     uiIcon = MB_ICONEXCLAMATION;
   SetStandardIcon(uiIcon);
 
-  int num_buttons(0);
-  int ButtonCmdIDs[3];
-  int ButtonCmdTexts[3];
-  
-  switch (uiType) {
-    case MB_OK:
-      num_buttons = 1;
-      ButtonCmdIDs[0] = IDOK;
-      ButtonCmdTexts[0] = IDS_OK;
-      break;
-    case MB_OKCANCEL:
-      num_buttons = 2;
-      ButtonCmdIDs[0] = IDOK;
-      ButtonCmdIDs[1] = IDCANCEL;
-      ButtonCmdTexts[0] = IDS_OK;
-      ButtonCmdTexts[1] = IDS_CANCEL;
-      m_uiEscCmdId = IDCANCEL;
-      break;
-    case MB_ABORTRETRYIGNORE:
-      num_buttons = 3;
-      ButtonCmdIDs[0] = IDABORT;
-      ButtonCmdIDs[1] = IDRETRY;
-      ButtonCmdIDs[2] = IDIGNORE;
-      ButtonCmdTexts[0] = IDS_ABORT;
-      ButtonCmdTexts[1] = IDS_RETRY;
-      ButtonCmdTexts[2] = IDS_IGNORE;
-      break;
-    case MB_YESNOCANCEL:
-      num_buttons = 3;
-      ButtonCmdIDs[0] = IDYES;
-      ButtonCmdIDs[1] = IDNO;
-      ButtonCmdIDs[2] = IDCANCEL;
-      ButtonCmdTexts[0] = IDS_YES;
-      ButtonCmdTexts[1] = IDS_NO;
-      ButtonCmdTexts[2] = IDS_CANCEL;
-      m_uiEscCmdId = IDCANCEL;
-      break;
-    case MB_YESNO:
-      num_buttons = 2;
-      ButtonCmdIDs[0] = IDYES;
-      ButtonCmdIDs[1] = IDNO;
-      ButtonCmdTexts[0] = IDS_YES;
-      ButtonCmdTexts[1] = IDS_NO;
-      break;
-    case MB_RETRYCANCEL:
-      num_buttons = 2;
-      ButtonCmdIDs[0] = IDRETRY;
-      ButtonCmdIDs[1] = IDCANCEL;
-      ButtonCmdTexts[0] = IDS_RETRY;
-      ButtonCmdTexts[1] = IDS_CANCEL;
-      m_uiEscCmdId = IDCANCEL;
-      break;
-    case MB_CANCELTRYCONTINUE:
-      num_buttons = 3;
-      ButtonCmdIDs[0] = IDCANCEL;
-      ButtonCmdIDs[1] = IDTRYAGAIN;
-      ButtonCmdIDs[2] = IDCONTINUE;
-      ButtonCmdTexts[0] = IDS_CANCEL;
-      ButtonCmdTexts[1] = IDS_TRYAGAIN;
-      ButtonCmdTexts[2] = IDS_CONTINUE;
-      m_uiEscCmdId = IDCANCEL;
-      break;
-    default:
-      ASSERT(0);
-  }
-
-  if (iDefB > (num_buttons - 1))
-    iDefB = 0;
+  if (defBtn >= tuples.size())
+    defBtn = 0;
 
   CString cs_text;
-  for (int n = 0; n < num_buttons; n++) {
-    cs_text.LoadString(ButtonCmdTexts[n]);
-    AddButton(ButtonCmdIDs[n], cs_text, n == iDefB ? TRUE : FALSE);
+  int i = 0;
+  for (const auto & tuple : tuples)
+  {
+    const int id_c = std::get<0>(tuple);
+    const int id_s = std::get<1>(tuple);
+    cs_text.LoadString(id_s);
+    AddButton(id_c, cs_text, i == defBtn, id_c == IDCANCEL);
+    i++;
   }
 
   INT_PTR rc = DoModal();
   return rc;
 }
 
+
+
+INT_PTR CGeneralMsgBox::MessageBox(LPCWSTR lpText, LPCWSTR lpCaption, UINT uiFlags)
+{
+  UINT uiType = uiFlags & MB_TYPEMASK;
+  UINT uiIcon = uiFlags & MB_ICONMASK;
+  int iDefB = ((int)uiFlags & MB_DEFMASK) / 256;
+
+
+  std::vector<std::tuple<int, int>> tuples;
+  
+  switch (uiType) {
+    case MB_OK:
+      tuples.push_back(std::make_tuple(IDOK, IDS_OK));
+      break;
+    case MB_OKCANCEL:
+      tuples.push_back(std::make_tuple(IDOK, IDS_OK));
+      tuples.push_back(std::make_tuple(IDCANCEL, IDS_CANCEL));
+      break;
+    case MB_ABORTRETRYIGNORE:
+      tuples.push_back(std::make_tuple(IDABORT, IDS_ABORT));
+      tuples.push_back(std::make_tuple(IDRETRY, IDS_RETRY));
+      tuples.push_back(std::make_tuple(IDIGNORE, IDS_IGNORE));
+      break;
+    case MB_YESNOCANCEL:
+      tuples.push_back(std::make_tuple(IDYES, IDS_YES));
+      tuples.push_back(std::make_tuple(IDNO, IDS_NO));
+      tuples.push_back(std::make_tuple(IDCANCEL, IDS_CANCEL));
+      break;
+    case MB_YESNO:
+      tuples.push_back(std::make_tuple(IDYES, IDS_YES));
+      tuples.push_back(std::make_tuple(IDNO, IDS_NO));
+      break;
+    case MB_RETRYCANCEL:
+      tuples.push_back(std::make_tuple(IDRETRY, IDS_RETRY));
+      tuples.push_back(std::make_tuple(IDCANCEL, IDS_CANCEL));
+      break;
+    case MB_CANCELTRYCONTINUE:
+      tuples.push_back(std::make_tuple(IDCANCEL, IDS_CANCEL));
+      tuples.push_back(std::make_tuple(IDTRYAGAIN, IDS_TRYAGAIN));
+      tuples.push_back(std::make_tuple(IDCONTINUE, IDS_CONTINUE));
+      break;
+    default:
+      ASSERT(0);
+  }
+
+  return AfxMessageBox(lpText, lpCaption, tuples, iDefB, uiIcon);
+}
+
 INT_PTR CGeneralMsgBox::AfxMessageBox(LPCWSTR lpszText, LPCWSTR lpCaption, UINT uiFlags)
 {
   SetMsg(lpszText);
-  if (lpCaption == NULL)
+  if (lpCaption == nullptr)
     lpCaption = AfxGetApp()->m_pszAppName;
-  INT_PTR rc = MessageBox(NULL, lpCaption, uiFlags);
+  INT_PTR rc = MessageBox(nullptr, lpCaption, uiFlags);
   return rc;
 }
 
 INT_PTR CGeneralMsgBox::AfxMessageBox(UINT uiIDPrompt, UINT uiFlags)
 {
   SetMsg(uiIDPrompt);
-  INT_PTR rc = MessageBox(NULL, AfxGetApp()->m_pszAppName, uiFlags);
+  INT_PTR rc = MessageBox(nullptr, AfxGetApp()->m_pszAppName, uiFlags);
   return rc;
 }
 
 // Replaces CDialog::DoModal
 INT_PTR CGeneralMsgBox::DoModal()
 {
-  InitModalIndirect((LPCDLGTEMPLATE)_dlgData, m_pParentWnd);
+  InitModalIndirect((LPCDLGTEMPLATE)dlg_data, m_pParentWnd);
   bool bAccEn = app.IsAcceleratorEnabled();
   if (bAccEn)
     app.DisableAccelerator();
@@ -371,7 +370,7 @@ void CGeneralMsgBox::SetIcon(HICON hIcon)
 {
   m_hIcon = hIcon;
 
-  if (m_hIcon != NULL) {
+  if (m_hIcon != nullptr) {
     // loading the icon and extracting it's dimensions
     ICONINFO ii;
     GetIconInfo(m_hIcon, &ii);
@@ -446,15 +445,17 @@ BOOL CGeneralMsgBox::OnInitDialog()
   // Updating the layout - preparing to show
   UpdateLayout();
 
+  if (m_bDelayAcceptAnswer) {
+    EnableButtons(false);
+    SetTimer(TIMER_GENMSGBOX_ENABLE_CONTROLS, (UINT)1000, NULL);
+  }
+
   // Disabling the ESC key
   if (m_uiEscCmdId == (UINT)IDC_STATIC)
     ModifyStyle(WS_SYSMENU, NULL);
 
-  // Focusing and setting the default button
   if (m_uiDefCmdId != (UINT)IDC_STATIC) {
-    GotoDlgCtrl(GetDlgItem(m_uiDefCmdId));
-    SetDefID(m_uiDefCmdId);
-
+    SetGotoDefaultControl();
     return FALSE;
   }
 
@@ -481,6 +482,16 @@ BOOL CGeneralMsgBox::OnWndMsg(UINT message, WPARAM wParam, LPARAM lParam,
       EndDialog(m_uiEscCmdId);
 
     return TRUE;
+  } else if (message == WM_TIMER && wParam == TIMER_GENMSGBOX_ENABLE_CONTROLS) {
+    m_dwTimeOut -= 1000;
+    if (m_dwTimeOut == 0) {
+      KillTimer(TIMER_GENMSGBOX_ENABLE_CONTROLS);
+      m_edCtrl.SetWindowText(m_sTextAfterAllowed);
+      EnableButtons(true);
+      SetGotoDefaultControl();
+    } else {
+      UpdateBeforeAllowedMessage();
+    }
   }
 
   return CDialog::OnWndMsg(message, wParam, lParam, pLResult);
@@ -490,14 +501,14 @@ BOOL CGeneralMsgBox::OnCmdMsg(UINT uiID, int nCode, void* pExtra,
                               AFX_CMDHANDLERINFO* pHandlerInfo)
 {
   if (nCode == CN_COMMAND) {
-    if (pHandlerInfo == NULL && uiID != (WORD)IDC_STATIC) {
+    if (pHandlerInfo == nullptr && uiID != (WORD)IDC_STATIC) {
       EndDialog(uiID);
       return TRUE;
     }
   }
 
   if (nCode == CN_COMMAND) {
-    if (pHandlerInfo == NULL && uiID == IDTIMEOUT) {
+    if (pHandlerInfo == nullptr && uiID == IDTIMEOUT) {
       EndDialog(IDTIMEOUT);
       return TRUE;
     }
@@ -512,7 +523,7 @@ BOOL CGeneralMsgBox::PreTranslateMessage(MSG *pMsg)
     if (pMsg->wParam == VK_RETURN) {
       CWnd *pWnd = GetFocus();
 
-      if (pWnd != NULL) {
+      if (pWnd != nullptr) {
         UINT uiIDC = (UINT)pWnd->GetDlgCtrlID();
 
         for (int i = 0; i < m_aBtns.GetSize(); ++i)
@@ -545,14 +556,22 @@ void CGeneralMsgBox::CreateRtfCtrl()
   // Creating the Rich Edit control
   CRect rcDummy; // dimension doesn't matter here
 
-  m_edCtrl.Create(WS_CHILD | WS_VISIBLE | ES_LEFT | ES_MULTILINE | ES_READONLY,
-                  rcDummy, this, (UINT)IDC_STATIC);
+  DWORD dwStyles = WS_CHILD | WS_VISIBLE | ES_LEFT | ES_MULTILINE | ES_READONLY;
+  // Delaying for answer causes default buttons (i.e., a sole OK button) to
+  // be initially disabled, causing rich text edit to gain focus with full
+  // selection. Prevent that with ES_SAVESEL.
+  if (m_bDelayAcceptAnswer)
+    dwStyles |= ES_SAVESEL;
+  m_edCtrl.Create(dwStyles, rcDummy, this, (UINT)IDC_STATIC);
   m_edCtrl.SetBackgroundColor(FALSE, ::GetSysColor(COLOR_3DFACE));
   m_edCtrl.SetFont(GetFont());
 
   m_strMsg.Trim();
 
-  m_edCtrl.SetWindowText(m_strMsg);
+  if (m_bDelayAcceptAnswer)
+    UpdateBeforeAllowedMessage();
+  else
+    m_edCtrl.SetWindowText(m_strMsg);
 
   /////////////////////////////////////////////////////////
   // Calculating the best Rich Edit control dimension
@@ -642,11 +661,11 @@ void CGeneralMsgBox::CreateBtns()
 
 void CGeneralMsgBox::CreateIcon()
 {
-  if (m_hIcon != NULL) {
+  if (m_hIcon != nullptr) {
     CRect rcDummy; // dimension doesn't matter here
 
     // Creating the icon control
-    m_stIconCtrl.Create(NULL, WS_CHILD | WS_VISIBLE | WS_DISABLED | SS_ICON, 
+    m_stIconCtrl.Create(nullptr, WS_CHILD | WS_VISIBLE | WS_DISABLED | SS_ICON, 
                         rcDummy, this);
     m_stIconCtrl.SetIcon(m_hIcon);
   }
@@ -659,6 +678,16 @@ int CGeneralMsgBox::FromDlgX(int x)
 // Converts d.u. in pixel (y axe)
 int CGeneralMsgBox::FromDlgY(int y)
 { return y * m_dimDlgUnit.cy / CY_DLGUNIT_BASE; }
+
+void CGeneralMsgBox::SetGotoDefaultControl()
+{
+  // If a default command ID is valid, establish it
+  // as the default, and go to the control.
+  if (m_uiDefCmdId != (UINT)IDC_STATIC) {
+    GotoDlgCtrl(GetDlgItem(m_uiDefCmdId));
+    SetDefID(m_uiDefCmdId);
+  }
+}
 
 // Updates the layout
 void CGeneralMsgBox::UpdateLayout()
@@ -677,7 +706,7 @@ void CGeneralMsgBox::UpdateLayout()
   CSize dimClient = m_dimMsg;
   int xMsg = 0;
 
-  if (m_hIcon != NULL) {
+  if (m_hIcon != nullptr) {
     // Adding the icon
     xMsg = m_dimIcon.cx + FromDlgX(m_aMetrics[CX_ICON_MSG_SPACE]);
 
@@ -710,7 +739,7 @@ void CGeneralMsgBox::UpdateLayout()
   CenterWindow();
 
   // Icon layout
-  if (m_hIcon != NULL)
+  if (m_hIcon != nullptr)
     m_stIconCtrl.MoveWindow(cxLeft, cyTop, m_dimIcon.cx, m_dimIcon.cy);
 
   // Message layout
@@ -727,4 +756,40 @@ void CGeneralMsgBox::UpdateLayout()
     pWndCtrl->MoveWindow(x, y, m_dimBtn.cx, m_dimBtn.cy);
     x += m_dimBtn.cx + cxBtnsSpace;
   }
+}
+
+void CGeneralMsgBox::UpdateBeforeAllowedMessage()
+{
+  if (m_sTextBeforeAllowed.Find(L"%d") == -1) {
+    // No integer format detected, just update message once.
+    if (!m_bTextBeforeAllowedSet) {
+      m_edCtrl.SetWindowText(m_sTextBeforeAllowed);
+      m_bTextBeforeAllowedSet = true;
+    }
+  } else {
+    // Update the message to reflect the remaining seconds.
+    CString cs_temp;
+    cs_temp.Format(m_sTextBeforeAllowed, m_dwTimeOut / 1000);
+    m_edCtrl.SetWindowText(cs_temp);
+  }
+}
+
+INT_PTR CGeneralMsgBox::MessageBoxDelayAcceptAnswer(
+  LPCWSTR lpTextBeforeAllowed,
+  LPCWSTR lpTextAfterAllowed,
+  LPCWSTR lpCaption,
+  UINT uiFlags,
+  DWORD dwSeconds
+)
+{
+  ASSERT(dwSeconds != 0);
+  if (dwSeconds == 0)
+    dwSeconds = 1;
+  m_bDelayAcceptAnswer = true;
+  m_dwTimeOut = dwSeconds * 1000;
+  m_sTextBeforeAllowed = lpTextBeforeAllowed;
+  m_bTextBeforeAllowedSet = false;
+  m_sTextAfterAllowed = lpTextAfterAllowed;
+  m_nResult = MessageBox(lpTextBeforeAllowed, lpCaption, uiFlags);
+  return m_nResult;
 }

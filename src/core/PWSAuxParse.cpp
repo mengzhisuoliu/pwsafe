@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -45,7 +45,7 @@ static UINT ParseRunCommand(const StringX &sxInputString,
 static UINT ProcessIndex(const StringX &sxIndex, int &var_index,
                          StringX::size_type &st_column);
 
-static void ParseNotes(StringX &sxNotes,
+static void ParseNotes(const StringX &sxNotes,
                        std::vector<StringX> &vsxnotes_lines)
 {
   if (!sxNotes.empty()) {
@@ -78,33 +78,28 @@ static void ParseNotes(StringX &sxNotes,
 // Externally visible functions
 //-----------------------------------------------------------------
 
-bool PWSAuxParse::GetEffectiveValues(const CItemData *pci, const CItemData *pbci,
-                                     StringX &sx_group, StringX &sx_title, StringX &sx_user,
-                                     StringX &sx_pswd, StringX &sx_lastpswd,
-                                     StringX &sx_notes, StringX &sx_url,
-                                     StringX &sx_email, StringX &sx_autotype, StringX &sx_runcmd)
+void PWSAuxParse::GetEffectiveValues(const CItemData* pci, const CItemData* pbci, CItemData& effectiveItemData, StringX& prevPassword, StringX& totpAuthCode)
 {
-  // The one place to get the values needed for AutoType & RunCmd based on entry type
-
-  if (pci->IsDependent()) {
+   if (pci->IsDependent()) {
     ASSERT(pbci != nullptr);
     if (pbci == nullptr)
-      return false;
+      return;
   }
 
-  sx_group    = pci->GetEffectiveFieldValue(CItem::GROUP, pbci);
-  sx_title    = pci->GetEffectiveFieldValue(CItem::TITLE, pbci);
-  sx_user     = pci->GetEffectiveFieldValue(CItem::USER, pbci);
-  sx_pswd     = pci->GetEffectiveFieldValue(CItem::PASSWORD, pbci);
-  sx_lastpswd = ::GetPreviousPassword(pci->GetEffectiveFieldValue(CItem::PWHIST, pbci));
-  sx_notes    = pci->GetEffectiveFieldValue(CItem::NOTES, pbci);
-  sx_url      = pci->GetEffectiveFieldValue(CItem::URL, pbci);
-  sx_email    = pci->GetEffectiveFieldValue(CItem::EMAIL, pbci);
-  sx_autotype = pci->GetEffectiveFieldValue(CItem::AUTOTYPE, pbci);
-  sx_runcmd   = pci->GetEffectiveFieldValue(CItem::RUNCMD, pbci);
+  effectiveItemData.SetGroup(pci->GetEffectiveFieldValue(CItem::GROUP, pbci));
+  effectiveItemData.SetTitle(pci->GetEffectiveFieldValue(CItem::TITLE, pbci));
+  effectiveItemData.SetUser(pci->GetEffectiveFieldValue(CItem::USER, pbci));
+  effectiveItemData.SetPassword(pci->GetEffectiveFieldValue(CItem::PASSWORD, pbci));
+  effectiveItemData.SetNotes(pci->GetEffectiveFieldValue(CItem::NOTES, pbci));
+  effectiveItemData.SetURL(pci->GetEffectiveFieldValue(CItem::URL, pbci));
+  effectiveItemData.SetEmail(pci->GetEffectiveFieldValue(CItem::EMAIL, pbci));
+  effectiveItemData.SetAutoType(pci->GetEffectiveFieldValue(CItem::AUTOTYPE, pbci));
+  effectiveItemData.SetRunCommand(pci->GetEffectiveFieldValue(CItem::RUNCMD, pbci));
 
-  return true;
+  prevPassword = PWHistList::GetPreviousPassword(pci->GetEffectiveFieldValue(CItem::PWHIST, pbci));
+  totpAuthCode = pci->IsDependent() ? pbci->GetTotpAuthCode() : pci->GetTotpAuthCode();
 }
+
 
 StringX PWSAuxParse::GetExpandedString(const StringX &sxRun_Command,
                                        const StringX &sxCurrentDB, 
@@ -136,18 +131,9 @@ StringX PWSAuxParse::GetExpandedString(const StringX &sxRun_Command,
   pws_os::splitpath(spath, sdrive, sdir, sfname, sextn);
   sdbdir = pws_os::makepath(sdrive, sdir, _T(""), _T(""));
 
-  StringX sx_group, sx_title, sx_user, sx_pswd, sx_lastpswd, sx_notes, sx_url, sx_email, sx_autotype;
-
-  // GetEffectiveFieldValue() encapsulates what we take from where depending in the entry type (alias, shortcut, etc.)
-  sx_group    = pci->GetEffectiveFieldValue(CItem::GROUP, pbci);
-  sx_title    = pci->GetEffectiveFieldValue(CItem::TITLE, pbci);
-  sx_user     = pci->GetEffectiveFieldValue(CItem::USER, pbci);
-  sx_pswd     = pci->GetEffectiveFieldValue(CItem::PASSWORD, pbci);
-  sx_lastpswd = ::GetPreviousPassword(pci->GetEffectiveFieldValue(CItem::PWHIST, pbci));
-  sx_notes    = pci->GetEffectiveFieldValue(CItem::NOTES, pbci);
-  sx_url      = pci->GetEffectiveFieldValue(CItem::URL, pbci);
-  sx_email    = pci->GetEffectiveFieldValue(CItem::EMAIL, pbci);
-  sx_autotype = pci->GetEffectiveFieldValue(CItem::AUTOTYPE, pbci);
+  CItemData effci;
+  StringX sx_lastpswd, sx_totpauthcode;
+  GetEffectiveValues(pci, pbci, effci, sx_lastpswd, sx_totpauthcode);
 
   for (rc_iter = v_rctokens.begin(); rc_iter < v_rctokens.end(); rc_iter++) {
     st_RunCommandTokens &st_rctoken = *rc_iter;
@@ -173,10 +159,10 @@ StringX PWSAuxParse::GetExpandedString(const StringX &sxRun_Command,
       sxretval += sextn.c_str();
     } else
     if (st_rctoken.sxname == _T("g") || st_rctoken.sxname == _T("group")) {
-      sxretval += sx_group;
+      sxretval += effci.GetGroup();
     } else
     if (st_rctoken.sxname == _T("G") || st_rctoken.sxname == _T("GROUP")) {
-      StringX sxg = sx_group;
+      StringX sxg = effci.GetGroup();
       StringX::size_type st_index;
       st_index = sxg.rfind(_T('.'));
       if (st_index != StringX::npos) {
@@ -185,22 +171,22 @@ StringX PWSAuxParse::GetExpandedString(const StringX &sxRun_Command,
       sxretval += sxg;
     } else
     if (st_rctoken.sxname == _T("t") || st_rctoken.sxname == _T("title")) {
-      sxretval += sx_title;
+      sxretval += effci.GetTitle();
     } else
     if (st_rctoken.sxname == _T("u") || st_rctoken.sxname == _T("user")) {
-      sxretval += sx_user;
+      sxretval += effci.GetUser();
     } else
     if (st_rctoken.sxname == _T("p") || st_rctoken.sxname == _T("password")) {
-      sxretval += sx_pswd;
+      sxretval += effci.GetPassword();
     } else
       if (st_rctoken.sxname == _T("e") || st_rctoken.sxname == _T("email")) {
-      sxretval += sx_email;
+      sxretval += effci.GetEmail();
     } else
     if (st_rctoken.sxname == _T("a") || st_rctoken.sxname == _T("autotype")) {
       // Do nothing - autotype variable handled elsewhere
     } else
     if (st_rctoken.sxname == _T("url")) {
-      StringX sxurl = sx_url;
+      StringX sxurl = effci.GetURL();
       if (sxurl.length() > 0) {
         // Remove 'Browse to' specifics
         StringX::size_type ipos;
@@ -232,10 +218,10 @@ StringX PWSAuxParse::GetExpandedString(const StringX &sxRun_Command,
     } else
     if (st_rctoken.sxname == _T("n") || st_rctoken.sxname == _T("notes")) {
       if (st_rctoken.index == 0) {
-        sxretval += sx_notes;
+        sxretval += effci.GetNotes();
       } else {
         std::vector<StringX> vsxnotes_lines;
-        ParseNotes(sx_notes, vsxnotes_lines);
+        ParseNotes(effci.GetNotes(), vsxnotes_lines);
         // If line there - use it; otherwise ignore it
         if (st_rctoken.index > 0 && st_rctoken.index <= static_cast<int>(vsxnotes_lines.size())) {
           sxretval += vsxnotes_lines[st_rctoken.index - 1];
@@ -340,6 +326,7 @@ StringX PWSAuxParse::GetAutoTypeString(const StringX &sx_in_autotype,
                                        const StringX &sx_notes,
                                        const StringX &sx_url,
                                        const StringX &sx_email,
+                                       const StringX& sx_totpauthcode,
                                        std::vector<size_t> &vactionverboffsets)
 {
   StringX sxtmp(_T(""));
@@ -418,6 +405,18 @@ StringX PWSAuxParse::GetAutoTypeString(const StringX &sx_in_autotype,
   const StringX sxZeroes = _T("000");
   unsigned int gNumIts;
 
+  // Following to make sure that a backslash in a password is autotyped as a single backslash.
+  auto duplicateCharInString = [](const StringX& input, TCHAR targetChar) -> StringX {
+    StringX retval;
+    for (TCHAR c : input) {
+      retval += c;
+      if (c == targetChar) {
+        retval += c;
+      }
+    }
+    return retval;
+    };
+
   for (size_t n = 0; n < N; n++){
     curChar = sx_autotype[n];
     if (curChar == TCHAR('\\')) {
@@ -440,25 +439,28 @@ StringX PWSAuxParse::GetAutoTypeString(const StringX &sx_in_autotype,
           sxtmp += TCHAR('\v');
           break;
         case TCHAR('g'):
-          sxtmp += sx_group;
+          sxtmp += duplicateCharInString(sx_group, L'\\');
           break;
         case TCHAR('i'):
-          sxtmp += sx_title;
+          sxtmp += duplicateCharInString(sx_title, L'\\');
           break;
         case TCHAR('u'):
-          sxtmp += sx_user;
+          sxtmp += duplicateCharInString(sx_user, L'\\');
           break;
         case TCHAR('p'):
-          sxtmp += sx_pwd;
+          sxtmp += duplicateCharInString(sx_pwd, L'\\');
           break;
         case TCHAR('q'):
-          sxtmp += sx_lastpwd;
+          sxtmp += duplicateCharInString(sx_lastpwd, L'\\');
           break;
         case TCHAR('l'):
-          sxtmp += sx_url;
+          sxtmp += duplicateCharInString(sx_url, L'\\');
           break;
         case TCHAR('m'):
-          sxtmp += sx_email;
+          sxtmp += duplicateCharInString(sx_email, L'\\');
+          break;
+        case TCHAR('2'):
+          sxtmp += duplicateCharInString(sx_totpauthcode, L'\\');
           break;
 
         case TCHAR('o'):
@@ -586,17 +588,19 @@ StringX PWSAuxParse::GetAutoTypeString(const CItemData &ci,
                                        std::vector<size_t> &vactionverboffsets)
 {
   const CItemData *pbci(nullptr);
-  StringX sx_group, sx_title, sx_user, sx_pswd, sx_lastpswd, sx_notes, sx_url, sx_email, sx_autotype, sx_runcmd;
 
   if (ci.IsDependent()) {
     pbci = core.GetBaseEntry(&ci);
   }
 
-  GetEffectiveValues(&ci, pbci, sx_group, sx_title, sx_user,
-                     sx_pswd, sx_lastpswd,
-                     sx_notes, sx_url, sx_email, sx_autotype, sx_runcmd);
+  CItemData effci;
+  StringX sx_prevPassword, sx_totpAuthCode;
 
-  // If empty, try the database default
+  GetEffectiveValues(&ci, pbci, effci, sx_prevPassword, sx_totpAuthCode);
+
+
+  // If autotype string is empty, try the database default
+  StringX sx_autotype = effci.GetAutoType();
   if (sx_autotype.empty()) {
     sx_autotype = PWSprefs::GetInstance()->
               GetPref(PWSprefs::DefaultAutotypeString);
@@ -604,17 +608,17 @@ StringX PWSAuxParse::GetAutoTypeString(const CItemData &ci,
     // If still empty, take this default
     if (sx_autotype.empty()) {
       // checking for user and password for default settings
-      if (!sx_pswd.empty()){
-        if (!sx_user.empty())
+      if (!effci.GetPassword().empty()){
+        if (!effci.GetUser().empty())
           sx_autotype = DEFAULT_AUTOTYPE;
         else
           sx_autotype = _T("\\p\\n");
       }
     }
   }
-  return PWSAuxParse::GetAutoTypeString(sx_autotype, sx_group,
-                                        sx_title, sx_user, sx_pswd, sx_lastpswd,
-                                        sx_notes, sx_url, sx_email,
+  return PWSAuxParse::GetAutoTypeString(sx_autotype, effci.GetGroup(),
+    effci.GetTitle(), effci.GetUser(), effci.GetPassword(), sx_prevPassword,
+    effci.GetNotes(), effci.GetURL(), effci.GetEmail(), sx_totpAuthCode,
                                         vactionverboffsets);
 }
 
@@ -655,9 +659,9 @@ void PWSAuxParse::SendAutoTypeString(const StringX &sx_autotype,
   ks.ResetKeyboardState();
 
   // Stop Keyboard/Mouse Input
-  pws_os::Trace(_T("PWSAuxParse::SendAutoTypeString - BlockInput set\n"));
-  ks.BlockInput(true);
-
+#ifndef DEBUG
+  ks.BlockInput(true); // Impossible to debug with this set...
+#endif
   // Karl Student's suggestion, to ensure focus set correctly on minimize.
   pws_os::sleep_ms(1000);
 
@@ -814,11 +818,10 @@ void PWSAuxParse::SendAutoTypeString(const StringX &sx_autotype,
           break;
         }
         default:
-          sxtmp += L'\\';
           sxtmp += curChar;
           break;
       }
-    } else
+    } else // curChar isn't backslash+special code
       sxtmp += curChar;
   }
 
@@ -831,8 +834,9 @@ void PWSAuxParse::SendAutoTypeString(const StringX &sx_autotype,
   pws_os::sleep_ms(100);
 
   // Reset Keyboard/Mouse Input
-  pws_os::Trace(_T("PWSAuxParse::SendAutoTypeString - BlockInput reset\n"));
+#ifndef DEBUG
   ks.BlockInput(false);
+#endif
 }
 
 //-----------------------------------------------------------------

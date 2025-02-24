@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -13,6 +13,7 @@
 #ifndef __WINUTILS_H__
 #define __WINUTILS_H__
 
+#include <vector>
 #include <xstring>
 #include <afxwin.h>
 
@@ -21,12 +22,14 @@ namespace WinUtil {
   HRGN GetWorkAreaRegion();
   bool OfferConfigMigration();
   bool PerformConfigMigration();
+  const UINT defDPI = 96;
   UINT GetDPI(HWND hwnd = nullptr); // wrapper for debugging and hiding Win10 compatibility breakage
   int  GetSystemMetrics(int nIndex, HWND hwnd = nullptr); // Hide Win10 compatibility breakage
   void ResizeBitmap(CBitmap& bmp_src, CBitmap& bmp_dst, int dstW, int dstH);
   void FixBitmapBackground(CBitmap& bm);
   BOOL LoadScaledBitmap(CBitmap& bitmap, UINT nID, bool fixBckgrnd = true, HWND hwnd = nullptr);
   bool HasTouchscreen(); // for BR1539 workaround
+  DWORD SetWindowExcludeFromScreenCapture(HWND hwnd, bool excludeFromScreenCapture);
 }
 #endif // __WINUTILS_H__
 

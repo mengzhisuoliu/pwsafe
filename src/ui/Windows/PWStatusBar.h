@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -8,7 +8,10 @@
 
 #pragma once
 
+#include <vector>
+
 #include "InfoDisplay.h"      // for Tooltips
+#include "ExcludeCaptureStateBitmapManager.h"
 
 // CPWStatusBar
 
@@ -20,7 +23,7 @@ class CPWStatusBar : public CStatusBar
 #if defined(_DEBUG) || defined(DEBUG)
         SB_CONFIG,
 #endif
-        SB_MODIFIED, SB_READONLY, SB_NUM_ENT, SB_FILTER,
+        SB_MODIFIED, SB_READONLY, SB_NUM_ENT, SB_SCR_CAP, SB_FILTER,
         SB_TOTAL /* this must be the last entry */};
 
 public:
@@ -55,6 +58,7 @@ private:
   bool m_bSTBFilterStatus;
   int m_bmHeight, m_bmWidth;
   CBitmap m_FilterBitmap;
+  CExcludeCaptureStateBitmapManager m_ExcludeCaptureBitmaps;
 
   UINT_PTR m_nHoverSBTimerID, m_nShowSBTimerID;
   CPoint m_HoverSBPoint;

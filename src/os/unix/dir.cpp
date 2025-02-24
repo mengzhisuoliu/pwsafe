@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -160,29 +160,29 @@ static stringT createuserprefsdir(void)
   if (!cfgdir.empty()) { // if $HOME's not defined, we have bigger problems...
  
     // (1)
-    cfgdir += _S(".pwsafe");
+    cfgdir += _T(".pwsafe");
 
     if (direxists(cfgdir, false))
-      return cfgdir + _S("/");
+      return cfgdir + _T("/");
 
     // (2)
     cfgdir = pws_os::getenv("XDG_CONFIG_HOME", true);
     if (!cfgdir.empty()) {
-      cfgdir += _S("/pwsafe");
+      cfgdir += _T("/pwsafe");
       if (direxists(cfgdir, true))
-        return cfgdir + _S("/");
+        return cfgdir + _T("/");
     }
 
     // (3)
-    cfgdir = pws_os::getenv("HOME", true) + _S("/.config");
+    cfgdir = pws_os::getenv("HOME", true) + _T("/.config");
     if (direxists(cfgdir, true)) {
-      cfgdir += _S("/pwsafe");
+      cfgdir += _T("/pwsafe");
       if (direxists(cfgdir, true))
-        return cfgdir + _S("/");
+        return cfgdir + _T("/");
     }
   }
 
-  return _S("");
+  return _T("");
 }
 
 stringT pws_os::getuserprefsdir(void)
@@ -205,21 +205,25 @@ stringT pws_os::getsafedir(void)
 
 stringT pws_os::getxmldir(void)
 {
+   stringT xmldir = pws_os::getenv("PWS_XMLDIR", true);
+  if (xmldir.empty()) {
 #ifdef __FreeBSD__
-  return _S("/usr/local/share/pwsafe/xml/");
+  xmldir = _T("/usr/local/share/pwsafe/xml/");
 #else
-  return _S("/usr/share/passwordsafe/xml/");
+  xmldir = _T("/usr/share/passwordsafe/xml/");
 #endif
+  }
+  return xmldir;
 }
 
 stringT pws_os::gethelpdir(void)
 {
   stringT helpdir = pws_os::getenv("PWS_HELPDIR", true);
   if (helpdir.empty()) {
-#ifdef __FreeBSD__
-    helpdir = _S("/usr/local/share/doc/passwordsafe/help/");
+#if defined( __FreeBSD__) || defined(__OpenBSD)
+    helpdir = _T("/usr/local/share/doc/passwordsafe/help/");
 #else
-    helpdir = _S("/usr/share/passwordsafe/help/");
+    helpdir = _T("/usr/share/passwordsafe/help/");
 #endif
   }
   return helpdir;

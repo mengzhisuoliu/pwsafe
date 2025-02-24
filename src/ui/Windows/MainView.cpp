@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -62,6 +62,12 @@ static char THIS_FILE[] = __FILE__;
 void DboxMain::DatabaseModified(bool bChanged)
 {
   PWS_LOGIT_ARGS("bChanged=%s", bChanged ? L"true" : L"false");
+
+  // If called from worker thread, invoke on GUI thread.
+  if (!IsGuiThread()) {
+    InvokeOnGuiThread(m_hWnd, [&]() { DatabaseModified(bChanged); return 0; });
+    return;
+  }
 
   // Callback from PWScore if the database has been changed
   // (entries, preferences, header information,
@@ -126,6 +132,12 @@ void DboxMain::BlockLogoffShutdown(const bool bChanged)
 void DboxMain::UpdateGUI(UpdateGUICommand::GUI_Action ga, 
                          const CUUID &entry_uuid, CItemData::FieldType ft)
 {
+  // If called from worker thread, invoke on GUI thread.
+  if (!IsGuiThread()) {
+    InvokeOnGuiThread(m_hWnd, [&]() { UpdateGUI(ga, entry_uuid, ft); return 0; });
+    return;
+  }
+
   // Callback from PWScore if GUI needs updating
   // Note: For some values of 'ga', 'entry_uuid' & ft are invalid and not used.
   CItemData *pci(NULL);
@@ -212,6 +224,12 @@ void DboxMain::UpdateGUI(UpdateGUICommand::GUI_Action ga,
 void DboxMain::UpdateGUI(UpdateGUICommand::GUI_Action ga,
                          const std::vector<StringX> &vGroups)
 {
+  // If called from worker thread, invoke on GUI thread.
+  if (!IsGuiThread()) {
+    InvokeOnGuiThread(m_hWnd, [&]() { UpdateGUI(ga, vGroups); return 0; });
+    return;
+  }
+
   if (ga != UpdateGUICommand::GUI_REFRESH_GROUPS) {
     // Processed in the other overload of UpdateGUI
     ASSERT(0);
@@ -233,11 +251,23 @@ void DboxMain::UpdateGUIDisplay()
 
 void DboxMain::GUIRefreshEntry(const CItemData &ci, bool bAllowFail)
 {
+  // If called from worker thread, invoke on GUI thread.
+  if (!IsGuiThread()) {
+    InvokeOnGuiThread(m_hWnd, [&]() { GUIRefreshEntry(ci, bAllowFail); return 0; });
+    return;
+  }
+
   UpdateEntryImages(ci, bAllowFail);
 }
 
 void DboxMain::UpdateWizard(const std::wstring &s)
 {
+  // If called from worker thread, invoke on GUI thread.
+  if (!IsGuiThread()) {
+    InvokeOnGuiThread(m_hWnd, [&]() { UpdateWizard(s); return 0; });
+    return;
+  }
+
   if (m_pWZWnd != NULL)
     m_pWZWnd->SetWindowText(s.c_str());
 }
@@ -458,7 +488,8 @@ void DboxMain::UpdateToolBarForSelectedItem(const CItemData *pci)
   const int IDs[] = {ID_MENUITEM_COPYPASSWORD, ID_MENUITEM_COPYUSERNAME,
                      ID_MENUITEM_COPYNOTESFLD, ID_MENUITEM_AUTOTYPE, 
                      ID_MENUITEM_RUNCOMMAND,   ID_MENUITEM_EDITENTRY,
-                     ID_MENUITEM_PASSWORDSUBSET};
+                     ID_MENUITEM_PASSWORDSUBSET,
+                     ID_MENUITEM_COPY2FAAUTHCODE, ID_MENUITEM_VIEW2FAAUTHCODE};
 
   // Following test required since this can be called on exit, with a pci
   // from ItemData that's already been deleted. Ugh.
@@ -513,6 +544,14 @@ void DboxMain::UpdateToolBarForSelectedItem(const CItemData *pci)
       mainTBCtrl.EnableButton(ID_MENUITEM_COPYUSERNAME, FALSE);
     } else {
       mainTBCtrl.EnableButton(ID_MENUITEM_COPYUSERNAME, TRUE);
+    }
+
+    if (pci_entry == NULL || pci_entry->IsFieldValueEmpty(CItemData::TWOFACTORKEY, pbci)) {
+      mainTBCtrl.EnableButton(ID_MENUITEM_COPY2FAAUTHCODE, FALSE);
+      mainTBCtrl.EnableButton(ID_MENUITEM_VIEW2FAAUTHCODE, FALSE);
+    } else {
+      mainTBCtrl.EnableButton(ID_MENUITEM_COPY2FAAUTHCODE, TRUE);
+      mainTBCtrl.EnableButton(ID_MENUITEM_VIEW2FAAUTHCODE, TRUE);
     }
 
     if (pci_entry == NULL || pci_entry->IsFieldValueEmpty(CItemData::NOTES, pbci)) {
@@ -1053,10 +1092,7 @@ size_t DboxMain::FindAll(const CString &str, BOOL CaseSensitive,
         break;
       }
       if (bsFields.test(CItemData::PWHIST)) {
-        size_t pwh_max, err_num;
-        PWHistList pwhistlist;
-        CreatePWHistoryList(curitem.GetPWHistory(), pwh_max, err_num,
-                            pwhistlist, PWSUtil::TMC_XML);
+        PWHistList pwhistlist(curitem.GetPWHistory(), PWSUtil::TMC_XML);
         PWHistList::iterator iter;
         for (iter = pwhistlist.begin(); iter != pwhistlist.end();
              iter++) {
@@ -2549,23 +2585,60 @@ void DboxMain::OnTimer(UINT_PTR nIDEvent)
     PWSprefs *prefs = PWSprefs::GetInstance();
     m_savedDBprefs = prefs->Store();
 
+    // Prepare to restore app window WS_DISABLED state for the case where modal dialogs are detected.
+    m_bMainWindowWasDisabled = (GetStyle() & WS_DISABLED) && CPWDialog::GetDialogTracker()->AnyModalDialogs();
+
     // Hide everything
     CPWDialog::GetDialogTracker()->HideOpenDialogs();
 
     // Now hide/minimize main dialog
     // NOTE: Do not call OnMinimize if minimizing as this will overwrite
     // the scroll bar positions
-    if (prefs->GetPref(PWSprefs::UseSystemTray)) {
-      ShowWindow(SW_HIDE);
-    } else {
-      ShowWindow(SW_MINIMIZE);
+    if (!prefs->GetPref(PWSprefs::UseSystemTray)) {
+      // With pwsafe in "taskbar" mode, and DB lock complete, immediately
+      // present the unlock password entry dialog as the pwsafe taskbar
+      // app window in minimized state.
+      PostMessage(WM_SYSCOMMAND, SC_RESTORE, PWSAFE_SC_LPARAM_INIT_APP_WINDOW_MINIMIZED);
     }
+    ShowWindow(SW_HIDE);
 
     if (nIDEvent == TIMER_LOCKONWTSLOCK)
       KillTimer(TIMER_LOCKONWTSLOCK);
   } else if (nIDEvent == TIMER_EXPENT) {
     // once a day, we want to check the expired entries list
     CheckExpireList();
+  } else if (nIDEvent == TIMER_FORCE_ALLOW_CAPTURE_BITMAP_BLINK) {
+
+    UINT nId;
+    UINT uiStyle;
+    int iWidth;
+    m_StatusBar.GetPaneInfo(CPWStatusBar::SB_SCR_CAP, nId, uiStyle, iWidth);
+
+    m_lScrCapStatusBarBlinkRemainingMsecs -= CStateBitmapControl::BLINK_RATE_MSECS;
+    m_lScrCapStatusBarBlinkRemainingMsecs = max(m_lScrCapStatusBarBlinkRemainingMsecs, (LONG)0);
+
+    UINT nIdNextBitmap;
+    if (
+      m_lScrCapStatusBarBlinkRemainingMsecs > 0 &&
+      PWSprefs::GetInstance()->GetPref(PWSprefs::ExcludeFromScreenCapture) &&
+      app.IsCommandLineForcedAllowScreenCapture()
+    ) {
+      // Continue blinking that force override is in effect.
+      nIdNextBitmap = nId == IDB_SCRCAP_ALLOWED_FORCED2 ? 
+        IDB_SCRCAP_ALLOWED_FORCED1 : IDB_SCRCAP_ALLOWED_FORCED2;
+    } else {
+      // Stop blinking, leaving a non-blinking status for the user.
+      nIdNextBitmap = IDB_SCRCAP_ALLOWED_FORCED1;
+      KillTimer(TIMER_FORCE_ALLOW_CAPTURE_BITMAP_BLINK);
+      m_bScreenCaptureStatusBarTimerEnabled = false;
+      m_lScrCapStatusBarBlinkRemainingMsecs = 0;
+    }
+
+    m_StatusBar.SetPaneInfo(CPWStatusBar::SB_SCR_CAP, nIdNextBitmap, uiStyle |= SBT_OWNERDRAW, m_StatusBar.GetBitmapWidth());
+    m_StatusBar.Invalidate();
+    m_StatusBar.UpdateWindow();
+  } else if (nIDEvent == TIMER_TWO_FACTOR_AUTH_CODE_UPDATE_CLIPBOARD) {
+    OnTwoFactorAuthCodeUpdateClipboardTimer();
   }
 }
 
@@ -2629,7 +2702,7 @@ bool DboxMain::LockDataBase()
   PWS_LOGIT;
 
   // Bug 1149: Check DB open before doing anything
-  if (!m_core.IsDbOpen())
+  if (!m_core.IsDbFileSet())
     return true;
 
   /*
@@ -2888,6 +2961,7 @@ void DboxMain::ChangeFont(const CFontsDialog::FontType iType)
       // Other fonts are just reset within the Fontdialog without exiting
       prefs->ResetPref(pref_Font);
       prefs->ResetPref(pref_FontSampleText);
+      prefs->SaveApplicationPreferences();
       return;
     }
 
@@ -2950,6 +3024,7 @@ void DboxMain::ChangeFont(const CFontsDialog::FontType iType)
 
           prefs->SetPref(pref_FontSampleText, LPCWSTR(fontdlg.m_sampletext));
         }
+        prefs->SaveApplicationPreferences();
         return;
       // NO "default" statement to generate compiler error if enum missing
     }
@@ -2974,13 +3049,14 @@ void DboxMain::ChangeFont(const CFontsDialog::FontType iType)
 
     // Save user's sample text
     prefs->SetPref(pref_FontSampleText, LPCWSTR(fontdlg.m_sampletext));
-  }
+    prefs->SaveApplicationPreferences();
+  } // rc== IDOK
 }
 
 void DboxMain::UpdateSystemTray(const DBSTATE s)
 {
   CString csTooltip(L"");
-  if (m_core.IsDbOpen()) {
+  if (m_core.IsDbFileSet()) {
     std::wstring cdrive, cdir, cFilename, cExtn;
     pws_os::splitpath(m_core.GetCurFile().c_str(), cdrive, cdir, cFilename, cExtn);
 
@@ -4031,16 +4107,12 @@ void DboxMain::OnHideFindToolbar()
 
 void DboxMain::SetFindToolBar(bool bShow)
 {
-  if (m_FindToolBar.GetSafeHwnd() == NULL)
-    return;
-
-  SetToolBarPositions();
-
-  if (!m_FindToolBar.IsWindowVisible() && !bShow)
+  if (m_FindToolBar.GetSafeHwnd() == NULL || (!m_FindToolBar.IsWindowVisible() && !bShow))
     return;  // Nothing to do if not visible
 
   m_FindToolBar.ShowFindToolBar(bShow);
   SetToolBarPositions();
+  PWSprefs::GetInstance()->SetPref(PWSprefs::FindToolBarActive, bShow); // to persist across instances.
 }
 
 void DboxMain::SetToolBarPositions()

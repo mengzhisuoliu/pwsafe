@@ -1,5 +1,5 @@
 ## Introduction
-The Linux port of PasswordSafe is currently stable, although lacking some of the more advanced features of the Windows version.
+The Linux port of Password Safe is currently stable, although lacking some of the more advanced features of the Windows version.
 
 ## Supported Distributions
 Packages for the versions of Debian, Ubuntu and Fedora that were
@@ -16,7 +16,7 @@ Slackware is independently supported, see below.
 
 ## Installation on Debian or Ubuntu
 
-PasswordSafe is available as package (https://packages.debian.org/stable/passwordsafe). To install it just use the following command.
+Password Safe is available as package (https://packages.debian.org/stable/passwordsafe). To install it just use the following command.
 
 ```
 $ sudo apt install passwordsafe
@@ -51,8 +51,34 @@ $ sudo emerge app-admin/passwordsafe
 ```
 
 ## Slackware
-Slackware users can download SlackBuild for PasswordSafe from
+Slackware users can download SlackBuild for Password Safe from
 https://slackbuilds.org, courtesy of rfmae (search for passwordsafe).
+
+## Installation on Arch
+The package description file (PKGBUILD) can be dowloaded via
+```
+$ git clone https://aur.archlinux.org/passwordsafe.git
+```
+After downloading, cd to the passwordsafe directory and run
+```
+$ makepkg
+```
+to download the code, compile and package it.
+Finally, run
+```
+$ sudo pacman -U passwordsafe-*.zst
+```
+to install the package on your machine. 
+
+For more details on building and installing packages on Arch, see https://wiki.archlinux.org/title/Arch_User_Repository
+
+## Flatpak
+Finally, Password Safe may be installed as a flatpak from Flathub:
+```
+$ flatpak install flathub org.pwsafe.pwsafe
+$ flatpak run org.pwsafe.pwsafe
+```
+See https://flathub.org/setup to get started using flatpak.
 
 ## Reporting Bugs
 Please submit bugs via https://sourceforge.net/p/passwordsafe/bugs/.

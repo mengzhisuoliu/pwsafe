@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -119,7 +119,10 @@ static bool isFileUnicode(const stringT &fname, pugi::xml_encoding& encoding)
     retval = false;
   }
   else {
-    (void) fread(buffer, 1, 4, fn);
+    if (fread(buffer, 1, 4, fn) != 4) {
+      fclose(fn);
+      return false;
+    }
       
     encoding = guessBufferEncoding(buffer[0], buffer[1], buffer[2], buffer[3]);
     if(encoding == pugi::encoding_auto) {
@@ -184,11 +187,11 @@ bool CReport::SaveToDisk()
       fclose(fd);
 
       // Open again to read
-      FILE *f_in = pws_os::FOpen(m_cs_filename, _S("rb"));
+      FILE *f_in = pws_os::FOpen(m_cs_filename, _T("rb"));
 
       // Open new file
-      stringT cs_out = m_cs_filename + _S(".tmp");
-      FILE *f_out = pws_os::FOpen(cs_out, _S("wb"));
+      stringT cs_out = m_cs_filename + _T(".tmp");
+      FILE *f_out = pws_os::FOpen(cs_out, _T("wb"));
         
       if(f_out == nullptr) {
         fclose(f_in);
@@ -221,7 +224,7 @@ bool CReport::SaveToDisk()
       pws_os::RenameFile(cs_out, m_cs_filename);
 
       // Re-open file
-      if ((fd = pws_os::FOpen(m_cs_filename, _S("ab"))) == nullptr) {
+      if ((fd = pws_os::FOpen(m_cs_filename, _T("ab"))) == nullptr) {
         pws_os::IssueError(_T("SaveToDisk: Opening log file"));
         return false;
       }
@@ -232,11 +235,11 @@ bool CReport::SaveToDisk()
       fclose(fd);
 
       // Open again to read
-      FILE *f_in = pws_os::FOpen(m_cs_filename, _S("rb"));
+      FILE *f_in = pws_os::FOpen(m_cs_filename, _T("rb"));
 
       // Open new file
-      stringT cs_out = m_cs_filename + _S(".tmp");
-      FILE *f_out = pws_os::FOpen(cs_out, _S("wb"));
+      stringT cs_out = m_cs_filename + _T(".tmp");
+      FILE *f_out = pws_os::FOpen(cs_out, _T("wb"));
         
       if(f_out == nullptr) {
         fclose(f_in);
@@ -249,14 +252,23 @@ bool CReport::SaveToDisk()
 
       size_t nBytesRead;
       unsigned char inbuffer[4096];
+      size_t skip = 0;
         
       if((encoding == pugi::encoding_utf16_le) || (encoding == pugi::encoding_utf16_be) || (encoding == pugi::encoding_utf16)) {
         // Skip 2 byte header
-        (void) fread(inbuffer, 1, 2, f_in);
+        skip = 2;
       }
       else if((encoding == pugi::encoding_utf32_le) || (encoding == pugi::encoding_utf32_be) || (encoding == pugi::encoding_utf32)) {
         // Skip 4 byte header
-        (void) fread(inbuffer, 1, 4, f_in);
+        skip = 4;
+      }
+
+      if (skip > 0) {
+           if (fread(inbuffer, 1, skip, f_in) != skip) {
+            fclose(f_in);
+            pws_os::IssueError(_T("SaveToDisk: Reading re-opening file"));
+            return false;
+          }
       }
 
       // Now copy and convert
@@ -297,7 +309,7 @@ bool CReport::SaveToDisk()
       pws_os::RenameFile(cs_out, m_cs_filename);
 
       // Re-open file
-      if ((fd = pws_os::FOpen(m_cs_filename, _S("ab"))) == nullptr) {
+      if ((fd = pws_os::FOpen(m_cs_filename, _T("ab"))) == nullptr) {
         pws_os::IssueError(_T("SaveToDisk: Opening log file"));
         return false;
       }
@@ -382,17 +394,24 @@ bool CReport::ReadFromDisk()
   wchar_t inbuffer[4096 / sizeof(wchar_t)];
 
   if (bFileIsUnicode) {
+    size_t skip = 0;
     if((encoding == pugi::encoding_utf16_le) || (encoding == pugi::encoding_utf16_be) || (encoding == pugi::encoding_utf16)) {
       // Skip 2 byte header
-      (void) fread(inbuffer, 1, 2, fd);
+      skip = 2;
     }
     else if((encoding == pugi::encoding_utf32_le) || (encoding == pugi::encoding_utf32_be) || (encoding == pugi::encoding_utf32)) {
       // Skip 4 byte header
-      (void) fread(inbuffer, 1, 4, fd);
+      skip = 4;
     }
     else if(encoding == pugi::encoding_utf8) {
       // Skip 3 byte header
-      (void) fread(inbuffer, 1, 3, fd);
+      skip = 3;
+    }
+    if (skip > 0) {
+      if (fread(inbuffer, 1, skip, fd) != skip) {
+        fclose(fd);
+        return false;
+      }
     }
   }
   

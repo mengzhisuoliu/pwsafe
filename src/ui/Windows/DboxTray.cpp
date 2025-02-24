@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -61,6 +61,10 @@ void DboxMain::OnTrayLockUnLock()
         m_vGroupDisplayState = GetGroupDisplayState();
 
       if (LockDataBase())  { // save db if needed, clear data
+
+        // Prepare to restore app window WS_DISABLED state for the case where modal dialogs are detected.
+        m_bMainWindowWasDisabled = (GetStyle() & WS_DISABLED) && CPWDialog::GetDialogTracker()->AnyModalDialogs();
+
         // Hide everything
         CPWDialog::GetDialogTracker()->HideOpenDialogs();
 
@@ -69,8 +73,13 @@ void DboxMain::OnTrayLockUnLock()
         // the scroll bar positions
         if (PWSprefs::GetInstance()->GetPref(PWSprefs::UseSystemTray))
           ShowWindow(SW_HIDE);
-        else
-          ShowWindow(SW_MINIMIZE);
+        else {
+          // With pwsafe in "taskbar" mode, and DB lock complete, immediately
+          // present the unlock password entry dialog as the pwsafe taskbar
+          // app window in minimized state.
+          PostMessage(WM_SYSCOMMAND, SC_RESTORE, PWSAFE_SC_LPARAM_INIT_APP_WINDOW_MINIMIZED);
+          ShowWindow(SW_HIDE);
+        }
       }
       break;
     case CLOSED:
@@ -181,20 +190,19 @@ void DboxMain::OnTrayBrowse(UINT nID)
   }
 
   const CItemData *pbci = ci.IsDependent() ? m_core.GetBaseEntry(&ci) : nullptr;
-  StringX sx_group, sx_title, sx_user, sx_pswd, sx_lastpswd, sx_notes, sx_url, sx_email, sx_autotype, sx_runcmd;
+  CItemData effci;
 
-  if (!PWSAuxParse::GetEffectiveValues(&ci, pbci, sx_group, sx_title, sx_user,
-                                       sx_pswd, sx_lastpswd,
-                                       sx_notes, sx_url, sx_email, sx_autotype, sx_runcmd))
-    return;
+  StringX sx_lastpswd, sx_totpauthcode;
 
+  PWSAuxParse::GetEffectiveValues(&ci, pbci, effci, sx_lastpswd, sx_totpauthcode);
+  StringX sx_url(effci.GetURL());
+ 
   if (!sx_url.empty()) {
     std::vector<size_t> vactionverboffsets;
-    StringX sxAutotype = PWSAuxParse::GetAutoTypeString(sx_autotype,
-                                  sx_group, sx_title, sx_user,
-                                  sx_pswd, sx_lastpswd,
-                                  sx_notes, sx_url, sx_email,
-                                  vactionverboffsets);
+    StringX sxAutotype = PWSAuxParse::GetAutoTypeString(effci.GetAutoType(),effci.GetGroup(), effci.GetTitle(), effci.GetUser(),
+                                                        effci.GetPassword(), sx_lastpswd, effci.GetNotes(),
+                                                        effci.GetURL(), effci.GetEmail(), sx_totpauthcode,
+                                                     vactionverboffsets);
 
     if (bUseAltBrowser)
       sx_url = L"[alt] " + sx_url; // LaunchBrowser can handle > 1 "[alt]", so no need to check if already there.
@@ -202,7 +210,7 @@ void DboxMain::OnTrayBrowse(UINT nID)
     LaunchBrowser(sx_url.c_str(), sxAutotype, vactionverboffsets, bDoAutotype);
 
     if (PWSprefs::GetInstance()->GetPref(PWSprefs::CopyPasswordWhenBrowseToURL)) {
-      SetClipboardData(sx_pswd);
+      SetClipboardData(effci.GetPassword());
       UpdateLastClipboardAction(CItemData::PASSWORD);
     }
   }
@@ -427,21 +435,19 @@ void DboxMain::OnTrayRunCommand(UINT nID)
     return;
 
   const CItemData *pbci = ci.IsDependent() ? m_core.GetBaseEntry(&ci) : nullptr;
-  StringX sx_group, sx_title, sx_user, sx_pswd, sx_lastpswd, sx_notes, sx_url, sx_email, sx_autotype, sx_runcmd;
+  StringX sx_lastpswd, sx_totpauthcode;
+  CItemData effci;
 
-  if (!PWSAuxParse::GetEffectiveValues(&ci, pbci, sx_group, sx_title, sx_user,
-                                       sx_pswd, sx_lastpswd,
-                                       sx_notes, sx_url, sx_email, sx_autotype, sx_runcmd))
-    return;
+  PWSAuxParse::GetEffectiveValues(&ci, pbci, effci, sx_lastpswd, sx_totpauthcode);
 
   StringX sx_Expanded_ES;
-  if (sx_runcmd.empty())
+  if (effci.GetRunCommand().empty())
     return;
 
   std::wstring errmsg;
   StringX::size_type st_column;
   bool bURLSpecial;
-  sx_Expanded_ES = PWSAuxParse::GetExpandedString(sx_runcmd,
+  sx_Expanded_ES = PWSAuxParse::GetExpandedString(effci.GetRunCommand(),
                                                   m_core.GetCurFile(), &ci, pbci,
                                                   m_bDoAutoType, m_sxAutoType,
                                                   errmsg, st_column, bURLSpecial);
@@ -459,12 +465,11 @@ void DboxMain::OnTrayRunCommand(UINT nID)
   if (m_sxAutoType.empty())
     m_sxAutoType = ci.GetAutoType();
 
-  m_sxAutoType = PWSAuxParse::GetAutoTypeString(m_sxAutoType,
-                                                sx_group, sx_title, sx_user,
-                                                sx_pswd, sx_lastpswd,
-                                                sx_notes, sx_url, sx_email,
+  m_sxAutoType = PWSAuxParse::GetAutoTypeString(m_sxAutoType, effci.GetGroup(), effci.GetTitle(), effci.GetUser(),
+                                                effci.GetPassword(), sx_lastpswd, effci.GetNotes(),
+                                                effci.GetURL(), effci.GetEmail(), sx_totpauthcode,
                                                 m_vactionverboffsets);
-  SetClipboardData(sx_pswd);
+  SetClipboardData(effci.GetPassword());
   UpdateLastClipboardAction(CItemData::PASSWORD);
 
   // Password always comes from a normal or base entry

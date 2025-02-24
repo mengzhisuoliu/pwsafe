@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -9,6 +9,7 @@
 #include "ThisMfcApp.h"
 #include "DboxMain.h"
 #include "PWPropertySheet.h"
+#include "winutils.h"
 
 IMPLEMENT_DYNAMIC(CPWPropertySheet, CMFCPropertySheet)
 
@@ -63,19 +64,23 @@ void CPWPropertySheet::OnShowWindow(BOOL bShow, UINT nStatus)
 
 BOOL CPWPropertySheet::OnInitDialog()
 {
-  CMFCPropertySheet::OnInitDialog();
+  BOOL retval = CMFCPropertySheet::OnInitDialog();
 
   // If started with Tall and won't fit - return to be called again with Wide
   if (m_bLongPPs && !GetMainDlg()->LongPPs(this)) {
     EndDialog(-1);
-    return TRUE;
+    return retval;
   }
 
   // It's OK - show it
   m_bKeepHidden = false;
   ShowWindow(SW_SHOW);
-  
-  return TRUE;  // return TRUE unless you set the focus to a control
+
+  CScreenCaptureStateControl::SetLastDisplayAffinityError(
+    WinUtil::SetWindowExcludeFromScreenCapture(m_hWnd, app.IsExcludeFromScreenCapture())
+  );
+
+  return retval;  // return TRUE unless you set the focus to a control
 }
 
 INT_PTR CPWPropertySheet::DoModal()
@@ -96,7 +101,7 @@ INT_PTR CPWPropertySheet::DoModal()
 
 LRESULT CPWPropertySheet::OnMenuChar(UINT nChar, UINT nFlags, CMenu *pMenu)
 {
-  // Stop beeps when presing Alt+<key> in the HotKeyCtrls
+  // Stop beeps when pressing Alt+<key> in the HotKeyCtrls
   const int nID = GetFocus()->GetDlgCtrlID();
 
   // IDs correspond to AddEdit_Additional Entry Keyboard Shortcut Hotkey and

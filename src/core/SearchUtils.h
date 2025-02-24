@@ -2,7 +2,7 @@
  * Initial version created as 'SearchUtils.h'
  * by Saurav Ghosh on 07/06/16.
  * 
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -66,13 +66,10 @@ void FindMatches(const StringX& searchText, bool fCaseSensitive,
     }
 
     if (!found && bsFields.test(CItemData::PWHIST)) {
-      size_t pwh_max, err_num;
-      PWHistList pwhistlist;
-      CreatePWHistoryList(afn(itr).GetPWHistory(), pwh_max, err_num,
-                          pwhistlist, PWSUtil::TMC_XML);
+      PWHistList pwhistlist(afn(itr).GetPWHistory(), PWSUtil::TMC_XML);
       for (PWHistList::iterator iter = pwhistlist.begin(); iter != pwhistlist.end(); iter++) {
         PWHistEntry pwshe = *iter;
-        found = fCaseSensitive? pwshe.password.find(searchText) != StringX::npos: FindNoCase(searchText, pwshe.password );
+        found = fCaseSensitive ? pwshe.password.find(searchText) != StringX::npos : FindNoCase(searchText, pwshe.password );
         if (found)
           break;  // break out of for loop
       }

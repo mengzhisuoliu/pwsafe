@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -108,15 +108,16 @@ static bool FileOP(const stringT &src, const stringT &dst,
   sfop.wFunc = wFunc;
   sfop.pFrom = szSource;
   sfop.pTo = szDestination;
-  sfop.fFlags = FOF_NOCONFIRMATION | FOF_NOCONFIRMMKDIR | FOF_SILENT | FOF_NOERRORUI;
+  sfop.fFlags = FOF_NOCONFIRMATION | FOF_NOCONFIRMMKDIR | FOF_SILENT | FOF_NOERRORUI | FOF_NOCOPYSECURITYATTRIBS;
 
-  return (SHFileOperation(&sfop) == 0);
+  int retval = SHFileOperation(&sfop);
+  return (retval == 0);
 }
 
 bool pws_os::RenameFile(const stringT &oldname, const stringT &newname)
 {
-  _tremove(newname.c_str()); // otherwise rename may fail if newname exists
-  return FileOP(oldname, newname, FO_MOVE);
+  DeleteFile(newname.c_str()); // otherwise rename may fail if newname exists
+  return FileOP(oldname, newname, FO_MOVE); // FO_RENAME fails across directories
 }
 
 extern bool pws_os::CopyAFile(const stringT &from, const stringT &to)
@@ -431,13 +432,13 @@ int pws_os::FClose(std::FILE *fd, const bool &bIsWrite)
   }
 }
 
-ulong64 pws_os::fileLength(std::FILE *fp) {
+size_t pws_os::fileLength(std::FILE *fp) {
   if (fp != nullptr) {
-    __int64 pos = _ftelli64(fp);
+    auto pos = _ftelli64(fp);
     _fseeki64(fp, 0, SEEK_END);
-    __int64 len = _ftelli64(fp);
+    auto len = _ftelli64(fp);
     _fseeki64(fp, pos, SEEK_SET);
-    return ulong64(len);
+    return static_cast<size_t>(len);
   } else
     return 0;
 }

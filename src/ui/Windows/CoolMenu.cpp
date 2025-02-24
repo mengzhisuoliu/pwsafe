@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -52,8 +52,8 @@ CCoolMenuManager::CCoolMenuManager()
   int bmpWidth = 16;
   int bmpHeight = 16;
   UINT dpi = WinUtil::GetDPI(m_hWnd);
-  bmpWidth = MulDiv(bmpWidth, dpi, 96);
-  bmpHeight = MulDiv(bmpHeight, dpi, 96);
+  bmpWidth = MulDiv(bmpWidth, dpi, WinUtil::defDPI);
+  bmpHeight = MulDiv(bmpHeight, dpi, WinUtil::defDPI);
 
   m_szBitmap = CSize(bmpWidth, bmpHeight);
   m_szButton = CSize(bmpWidth, bmpHeight) + CSize(CXBUTTONMARGIN << 1, CYBUTTONMARGIN << 1);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -24,6 +24,11 @@
 #include "ExternalKeyboardButton.h"
 #include "SafeCombinationCtrl.h"
 #include "wxUtilities.h"
+
+#include <wx/bmpbuttn.h>
+
+#include "graphics/eye.xpm"         // https://www.pngrepo.com/svg/10151/eye
+#include "graphics/eye_close.xpm"   // https://www.pngrepo.com/svg/391829/eye-close
 
 /*
  * This serves to transfer the data from wxTextCtrl directly into a StringX.
@@ -118,8 +123,14 @@ void SafeCombinationCtrl::Init(wxWindow* parent,
   ApplyFontPreference(m_textCtrl, PWSprefs::StringPrefs::PasswordFont);
   Add(m_textCtrl, wxSizerFlags().Proportion(1).Expand());
 
-  ExternalKeyboardButton* vkbdButton = new ExternalKeyboardButton(parent);
-  Add(vkbdButton, wxSizerFlags().Border(wxLEFT));
+  auto *showHideButton = new wxBitmapButton(parent, wxID_ANY, wxBitmap(eye_xpm), wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+  showHideButton->Bind(wxEVT_BUTTON, [&, showHideButton](wxCommandEvent& event) {
+    UpdatePasswordTextCtrl(this, m_textCtrl, m_textCtrl->GetValue(), nullptr, m_IsPasswordHidden ? 0 : wxTE_PASSWORD);
+    showHideButton->SetBitmapLabel(wxBitmap(m_IsPasswordHidden ? eye_close_xpm : eye_xpm));
+    showHideButton->SetToolTip(m_IsPasswordHidden ? _("Hide password") : _("Show password"));
+    m_IsPasswordHidden = !m_IsPasswordHidden;
+  });
+  Add(showHideButton, 0, wxLEFT|wxRIGHT|wxEXPAND, 5);
 }
 
 SafeCombinationCtrl::~SafeCombinationCtrl()

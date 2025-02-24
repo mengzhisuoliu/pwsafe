@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -174,7 +174,6 @@ PWScore::PWScore() :
                      m_ReadFileVersion(PWSfile::UNKNOWN_VERSION),
                      m_bIsReadOnly(false),
                      m_bNotifyDB(false),
-                     m_bIsOpen(false),
                      m_nRecordsWithUnknownFields(0),
                      m_DBCurrentState(CLEAN),
                      m_pFileSig(nullptr),
@@ -555,9 +554,6 @@ void PWScore::ClearDBData()
 
   // Clear any unknown preferences from previous databases
   PWSprefs::GetInstance()->ClearUnknownPrefs();
-
-  // OK now closed
-  m_bIsOpen = false;
 }
 
 void PWScore::ReInit(bool bNewFile)
@@ -588,6 +584,7 @@ void PWScore::NewFile(const StringX &passkey)
 // functor object type for for_each:
 // Writes out all records to a PasswordSafe database of any version
 struct RecordWriter {
+  RecordWriter(const RecordWriter&) = default;
   RecordWriter(PWSfile *pout, PWScore *pcore, PWSfile::VERSION version)
     : m_pout(pout), m_pcore(pcore), m_version(version) {}
 
@@ -1368,7 +1365,7 @@ int PWScore::ReadFile(const StringX &a_filename, const StringX &a_passkey,
           stringT cs_msg, cs_caption;
           LoadAString(cs_caption, IDSC_READ_ERROR);
           Format(cs_msg, IDSC_ENCODING_PROBLEM, ci_temp.GetTitle().c_str());
-          cs_msg = cs_caption + _S(": ") + cs_msg;
+          cs_msg = cs_caption + _T(": ") + cs_msg;
           (*m_pReporter)(cs_msg);
         }
       }
@@ -1427,9 +1424,6 @@ int PWScore::ReadFile(const StringX &a_filename, const StringX &a_passkey,
   // Make return code negative if validation errors
   if (closeStatus == SUCCESS && bValidateRC)
     closeStatus = OK_WITH_VALIDATION_ERRORS;
-
-  // OK DB open
-  m_bIsOpen = true;
 
   return closeStatus;
 }
@@ -1607,6 +1601,7 @@ struct FieldsMatch {
             m_title == item.GetTitle() &&
             m_user  == item.GetUser());
   }
+  FieldsMatch(const FieldsMatch&) = default;
   FieldsMatch(const StringX &a_group, const StringX &a_title,
               const StringX &a_user) :
   m_group(a_group), m_title(a_title), m_user(a_user) {}
@@ -1633,6 +1628,7 @@ struct TitleMatch {
     return (m_title == item.GetTitle());
   }
 
+  TitleMatch(const TitleMatch&) = default;
   TitleMatch(const StringX &a_title) :
     m_title(a_title) {}
 
@@ -1677,6 +1673,7 @@ struct GroupTitle_TitleUserMatch {
             (m_gt == item.GetTitle() && m_tu == item.GetUser()));
   }
 
+  GroupTitle_TitleUserMatch(const GroupTitle_TitleUserMatch&) = default;
   GroupTitle_TitleUserMatch(const StringX &a_grouptitle,
                             const StringX &a_titleuser) :
                             m_gt(a_grouptitle),  m_tu(a_titleuser) {}
@@ -1988,6 +1985,7 @@ void PWScore::MakePolicyUnique(std::map<StringX, StringX> &mapRenamedPolicies,
 // functor object type for for_each:
 // Updates vector with entries using named password policy
 struct AddEntry {
+  AddEntry(const AddEntry&) = default;
   AddEntry(const StringX sxPolicyName, std::vector<st_GroupTitleUser> &ventries)
     : m_sxPolicyName(sxPolicyName), m_pventries(&ventries) {}
 
@@ -3149,88 +3147,6 @@ void PWScore::GetAllDependentEntries(const CUUID &base_uuid, UUIDVector &tlist,
   }
 }
 
-bool PWScore::ParseBaseEntryPWD(const StringX &Password, BaseEntryParms &pl)
-{
-  // pl.ibasedata is:
-  //  +n: password contains (n-1) colons and base entry found (n = 1, 2 or 3)
-  //   0: password not in alias format
-  //  -n: password contains (n-1) colons but either no base entry found or 
-  //      no unique entry found (n = 1, 2 or 3)
-
-  // "bMultipleEntriesFound" is set if no "unique" base entry could be found and
-  //  is only valid if n = -1 or -2.
-
-  // Returns true if in a valid alias format, false if not
-
-  pl.bMultipleEntriesFound = false;
-
-  // Take a copy of the Password field to do the counting!
-  StringX passwd(Password);
-
-  int num_colonsP1 = Replace(passwd, _T(':'), _T(';')) + 1;
-  if ((Password[0] == _T('[')) &&
-      (Password[Password.length() - 1] == _T(']')) &&
-      num_colonsP1 <= 3) {
-    StringX tmp;
-    ItemListIter iter = m_pwlist.end();
-    switch (num_colonsP1) {
-      case 1:
-        // [X] - OK if unique entry [g:X:u], [g:X:], [:X:u] or [:X:] exists for any value of g or u
-        pl.csPwdTitle = Password.substr(1, Password.length() - 2);  // Skip over '[' & ']'
-        iter = GetUniqueBase(pl.csPwdTitle, pl.bMultipleEntriesFound);
-        if (iter != m_pwlist.end()) {
-          // Fill in the fields found during search
-          pl.csPwdGroup = iter->second.GetGroup();
-          pl.csPwdUser = iter->second.GetUser();
-        }
-        break;
-      case 2:
-        // [X:Y] - OK if unique entry [X:Y:u] or [g:X:Y] exists for any value of g or u
-        pl.csPwdUser = _T("");
-        tmp = Password.substr(1, Password.length() - 2);  // Skip over '[' & ']'
-        pl.csPwdGroup = tmp.substr(0, tmp.find_first_of(_T(':')));
-        pl.csPwdTitle = tmp.substr(pl.csPwdGroup.length() + 1);  // Skip over 'group:'
-        iter = GetUniqueBase(pl.csPwdGroup, pl.csPwdTitle, pl.bMultipleEntriesFound);
-        if (iter != m_pwlist.end()) {
-          // Fill in the fields found during search
-          pl.csPwdGroup = iter->second.GetGroup();
-          pl.csPwdTitle = iter->second.GetTitle();
-          pl.csPwdUser = iter->second.GetUser();
-        }
-        break;
-      case 3:
-        // [X:Y:Z], [X:Y:], [:Y:Z], [:Y:] (title cannot be empty)
-        tmp = Password.substr(1, Password.length() - 2);  // Skip over '[' & ']'
-        pl.csPwdGroup = tmp.substr(0, tmp.find_first_of(_T(':')));
-        tmp = tmp.substr(pl.csPwdGroup.length() + 1);  // Skip over 'group:'
-        pl.csPwdTitle = tmp.substr(0, tmp.find_first_of(_T(':')));    // Skip over 'title:'
-        pl.csPwdUser = tmp.substr(pl.csPwdTitle.length() + 1);
-        iter = Find(pl.csPwdGroup, pl.csPwdTitle, pl.csPwdUser);
-        break;
-      default:
-        ASSERT(0);
-    }
-    if (iter != m_pwlist.end()) {
-      pl.TargetType = iter->second.GetEntryType();
-      if (pl.InputType == CItemData::ET_ALIAS && pl.TargetType == CItemData::ET_ALIAS) {
-        // Check if base is already an alias, if so, set this entry -> real base entry
-        pl.base_uuid = iter->second.GetBaseUUID();
-      } else {
-        // This may not be a valid combination of source+target entries - sorted out by caller
-        pl.base_uuid = iter->second.GetUUID();
-      }
-      // Valid and found
-      pl.ibasedata = num_colonsP1;
-      return true;
-    }
-    // Valid but either exact [g:t:u] not found or
-    //  no or multiple entries satisfy [x] or [x:y]
-    pl.ibasedata  = -num_colonsP1;
-    return true;
-  }
-  pl.ibasedata = 0; // invalid password format for an alias
-  return false;
-}
 
 const CItemData *PWScore::GetBaseEntry(const CItemData *pAliasOrSC) const
 {
@@ -3249,6 +3165,25 @@ CItemData *PWScore::GetBaseEntry(const CItemData *pAliasOrSC)
     else
       pws_os::Trace(_T("PWScore::GetBaseEntry - Find(base_uuid) failed!\n"));
   }
+  return nullptr;
+}
+
+const CItemData* PWScore::GetCredentialEntry(const CItemData* pAny) const
+{
+  return const_cast<PWScore*>(this)->GetCredentialEntry(pAny);
+}
+
+CItemData* PWScore::GetCredentialEntry(const CItemData* pAny)
+{
+  ASSERT(pAny != nullptr);
+  if (!pAny)
+    return nullptr;
+  const CUUID uuidCredential = pAny->IsDependent() ? pAny->GetBaseUUID() : pAny->GetUUID();
+  auto iter = Find(uuidCredential);
+  if (iter != GetEntryEndIter())
+    return &iter->second;
+  pws_os::Trace(_T("PWScore::GetCredentialEntry - Find(base_uuid) failed!\n"));
+  ASSERT(FALSE);
   return nullptr;
 }
 
@@ -3333,8 +3268,12 @@ void PWScore::UnlockFile(const stringT &filename)
 
 void PWScore::SafeUnlockCurFile()
 {
-  const std::wstring filename(GetCurFile().c_str());
+  const stringT filename(GetCurFile().c_str());
+  SafeUnlockFile(filename);
+}
 
+void PWScore::SafeUnlockFile(const stringT &filename)
+{
   // The only way we're the locker is if it's locked & we're !readonly
   if (!filename.empty() && !IsReadOnly() && IsLockedFile(filename))
     UnlockFile(filename);

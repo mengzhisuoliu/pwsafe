@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -15,19 +15,26 @@
 
 static const TCHAR *sHex = _T("0123456789abcdefABCDEF");
 
+static struct tm* set_tm(struct tm* ptm, int yyyy, int mon, int dd,
+  int hh = 0, int min = 0, int sec = 0, int isdst = -1)
+{
+  memset(ptm, 0, sizeof(tm));
+  ptm->tm_year = yyyy - 1900;
+  ptm->tm_mon = mon - 1;
+  ptm->tm_mday = dd;
+  ptm->tm_hour = hh;
+  ptm->tm_min = min;
+  ptm->tm_sec = sec;
+  ptm->tm_isdst = isdst;
+  return ptm;
+}
+
 // Our own mktime, differs from libc's via argument overloading
 static time_t mktime(int yyyy, int mon, int dd,
                      int hh = 0, int min = 0, int sec = 0, int *dow = nullptr)
 {
   struct tm xtm;
-  memset(&xtm, 0, sizeof(tm));
-  xtm.tm_year = yyyy - 1900;
-  xtm.tm_mon = mon - 1;
-  xtm.tm_mday = dd;
-  xtm.tm_hour = hh;
-  xtm.tm_min = min;
-  xtm.tm_sec = sec;
-  xtm.tm_isdst = -1;
+  set_tm(&xtm, yyyy, mon, dd, hh, min, sec, -1);
   time_t retval = std::mktime(&xtm);
   if (dow != nullptr)
     *dow = xtm.tm_wday + 1;
@@ -64,7 +71,7 @@ bool verifyDTvalues(int yyyy, int mon, int dd,
   return true;
 }
 
-bool VerifyImportDateTimeString(const stringT &time_str, time_t &t)
+bool VerifyImportDateTimeString(const stringT &time_str, time_t &t, bool utc_time)
 {
   //  String format must be "yyyy/mm/dd hh:mm:ss"
   //                        "0123456789012345678"
@@ -105,12 +112,21 @@ bool VerifyImportDateTimeString(const stringT &time_str, time_t &t)
     t = time_t(0);
     return true;
   }
-
-  t = mktime(yyyy, mon, dd, hh, min, ss);
+  if (utc_time) {
+    struct tm ts;
+    set_tm(&ts, yyyy, mon, dd, hh, min, ss, -1);
+#ifdef WIN32
+    t = _mkgmtime(&ts);
+#else
+    t = timegm(&ts);
+#endif
+  }
+  else
+    t = mktime(yyyy, mon, dd, hh, min, ss);
   return true;
 }
 
-bool VerifyASCDateTimeString(const stringT &time_str, time_t &t)
+bool VerifyASCDateTimeString(const stringT &time_str, time_t &t, bool utc_time)
 {
   //  String format must be "ddd MMM dd hh:mm:ss yyyy"
   //                        "012345678901234567890123"
@@ -119,6 +135,7 @@ bool VerifyASCDateTimeString(const stringT &time_str, time_t &t)
   const stringT str_months = _T("JanFebMarAprMayJunJulAugSepOctNovDec");
   const stringT str_days = _T("SunMonTueWedThuFriSat");
   const int ndigits = 12;
+  const int idigit_or_space = 8;
   const int idigits[ndigits] = {8, 9, 11, 12, 14, 15, 17, 18, 20, 21, 22, 23};
   stringT::size_type iMON, iDOW;
   int yyyy, mon, dd, hh, min, ss;
@@ -133,9 +150,19 @@ bool VerifyASCDateTimeString(const stringT &time_str, time_t &t)
       time_str[16] != TCHAR(':'))
     return false;
 
-  for (int i = 0; i < ndigits; i++)
-    if (!isdigit(time_str[idigits[i]]))
-      return false;
+  for (int i = 0; i < ndigits; i++) {
+    int index = idigits[i];
+
+    // The standard calls for a format that will have
+    // a space at index 8 for single digit day values.
+    // Web searches indicate MSVC RTL once zero-padded,
+    // possibly why this check was absent.
+    if (index == idigit_or_space && time_str[index] == TCHAR(' '))
+      continue;
+
+    if (!isdigit(time_str[index]))
+        return false;
+  }
 
   istringstreamT is(time_str);
   stringT dow, mon_str;
@@ -158,8 +185,20 @@ bool VerifyASCDateTimeString(const stringT &time_str, time_t &t)
     return true;
   }
 
+  time_t xt;
   int  mktime_dow;
-  time_t xt = mktime(yyyy, mon, dd, hh, min, ss, &mktime_dow);
+  if (utc_time) {
+    struct tm ts;
+    set_tm(&ts, yyyy, mon, dd, hh, min, ss, -1);
+#ifdef WIN32
+    xt = _mkgmtime(&ts);
+#else
+    xt = timegm(&ts);
+#endif
+    mktime_dow = ts.tm_wday + 1;
+  }
+  else
+    xt = mktime(yyyy, mon, dd, hh, min, ss, &mktime_dow);
 
   iDOW = str_days.find(dow);
   if (iDOW == stringT::npos)
@@ -173,7 +212,7 @@ bool VerifyASCDateTimeString(const stringT &time_str, time_t &t)
   return true;
 }
 
-bool VerifyXMLDateTimeString(const stringT &time_str, time_t &t)
+bool VerifyXMLDateTimeString(const stringT &time_str, time_t &t, bool utc_time)
 {
   //  String format must be "yyyy-mm-ddThh:mm:ss"
   //                    or  "yyyy-mm-ddThh:mm:ssZ"
@@ -250,11 +289,24 @@ bool VerifyXMLDateTimeString(const stringT &time_str, time_t &t)
     return true;
   }
 
-  t = mktime(yyyy, mon, dd, hh, min, ss);
-
-  // Add timezone offsets
-  if (tz_hh != 0 || tz_mm != 0) {
-    t -= (tz_hh * 60 + tz_mm) * 60;
+  if (utc_time) {
+    struct tm ts;
+    set_tm(&ts, yyyy, mon, dd, hh, min, ss, -1);
+#ifdef WIN32
+    t = _mkgmtime(&ts);
+#else
+    t = timegm(&ts);
+#endif
+    // utc_time caller should not be providing non-utc timestamps.
+    ASSERT(tz_hh == 0);
+    ASSERT(tz_mm == 0);
+  }
+  else {
+    t = mktime(yyyy, mon, dd, hh, min, ss);
+    // Add timezone offsets
+    if (tz_hh != 0 || tz_mm != 0) {
+      t -= (tz_hh * 60 + tz_mm) * 60;
+    }
   }
 
   return true;
@@ -275,8 +327,8 @@ bool VerifyXMLDateString(const stringT &time_str, time_t &t)
     return false;
 
   // Validate time_str
-  if (time_str.substr(4,1) != _S("-") ||
-      time_str.substr(7,1) != _S("-"))
+  if (time_str.substr(4,1) != _T("-") ||
+      time_str.substr(7,1) != _T("-"))
     return false;
 
   for (int i = 0; i < ndigits; i++) {

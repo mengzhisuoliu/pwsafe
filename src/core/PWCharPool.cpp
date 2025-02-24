@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -347,6 +347,7 @@ class FillSC {
   // for "leet" alphabet for pronounceable passwords
   // with usesymbols and/or usedigits specified
 public:
+  FillSC(const FillSC&) = default;
   FillSC(vector<int> &sc, bool digits, bool symbols)
     : m_sc(sc), m_digits(digits), m_symbols(symbols), m_i(0) {}
 

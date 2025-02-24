@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -247,7 +247,7 @@ long PWSfile::GetOffset() const
 
 // Following for 'legacy' use of pwsafe as file encryptor/decryptor
 // this is for the undocumented 'command line file encryption'
-static const stringT CIPHERTEXT_SUFFIX(_S(".PSF"));
+static const stringT CIPHERTEXT_SUFFIX(_T(".PSF"));
 
 size_t PWSfile::fileThresholdSize = std::numeric_limits<uint32>::max(); // files this size and above encrypted differently - configurable for testing
 

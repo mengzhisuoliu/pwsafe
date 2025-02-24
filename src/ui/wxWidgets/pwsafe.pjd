@@ -11,7 +11,7 @@
     <bool name="archive_xrc_files">1</bool>
     <string name="author">""</string>
     <string name="configuration">"GCC Debug"</string>
-    <string name="copyright_string">"Copyright (c) 2003-2023 Rony Shapiro &lt;ronys@pwsafe.org&gt;"</string>
+    <string name="copyright_string">"Copyright (c) 2003-2025 Rony Shapiro &lt;ronys@pwsafe.org&gt;"</string>
     <string name="cpp_function_declaration_comment">"	/// %BODY%
 "</string>
     <string name="cpp_function_implementation_comment">"
@@ -60,7 +60,7 @@
 
 "</string>
     <string name="cpp_symbols_file_comment">"*
- * Copyright (c) 2003-2023 Rony Shapiro &lt;ronys@pwsafe.org&gt;.
+ * Copyright (c) 2003-2025 Rony Shapiro &lt;ronys@pwsafe.org&gt;.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -2099,9 +2099,9 @@
                 <string name="proxy-Id name">"ID_CHANGECOMBO"</string>
                 <long name="proxy-Id value">10057</long>
                 <string name="proxy-Kind">"Normal"</string>
-                <string name="proxy-Label">"&amp;Change Safe Combination..."</string>
+                <string name="proxy-Label">"&amp;Change Master Password..."</string>
                 <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
-                <string name="title">"&amp;Change Safe Combination...: ID_CHANGECOMBO"</string>
+                <string name="title">"&amp;Change Master Password...: ID_CHANGECOMBO"</string>
                 <long name="title-mode">0</long>
                 <string name="type">"dialog-control-document"</string>
               </document>
@@ -2626,7 +2626,7 @@
           <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
           <string name="proxy-Texture">""</string>
           <string name="proxy-Texture style">"Tiled"</string>
-          <string name="proxy-Title">"Safe Combination Entry"</string>
+          <string name="proxy-Title">"Master Password Entry"</string>
           <string name="proxy-Tooltip text">""</string>
           <long name="proxy-Width">400</long>
           <string name="proxy-Window kind">"wxDialog"</string>
@@ -2659,7 +2659,7 @@
           <long name="proxy-X">-1</long>
           <string name="proxy-XRC filename">""</string>
           <long name="proxy-Y">-1</long>
-          <string name="title">"Safe Combination Entry"</string>
+          <string name="title">"Master Password Entry"</string>
           <long name="title-mode">0</long>
           <string name="type">"dialog-document"</string>
           <bool name="use-id-prefix">0</bool>
@@ -2980,7 +2980,7 @@
                 <string name="proxy-Id name">"wxID_STATIC"</string>
                 <long name="proxy-Id value">5105</long>
                 <string name="proxy-Implementation filename">""</string>
-                <string name="proxy-Label">"Open Password Database:"</string>
+                <string name="proxy-Label">"Password Database:"</string>
                 <string name="proxy-Member variable name">""</string>
                 <string name="proxy-Name">""</string>
                 <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
@@ -3643,7 +3643,7 @@
                   <string name="proxy-Id name">"ID_YUBISTATUS"</string>
                   <long name="proxy-Id value">10230</long>
                   <string name="proxy-Implementation filename">""</string>
-                  <string name="proxy-Label">"Please insert your YubiKey"</string>
+                  <string name="proxy-Label">"Insert YubiKey"</string>
                   <string name="proxy-Member variable name">"m_yubiStatusCtrl"</string>
                   <string name="proxy-Name">""</string>
                   <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
@@ -3956,7 +3956,7 @@
           <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
           <string name="proxy-Texture">""</string>
           <string name="proxy-Texture style">"Tiled"</string>
-          <string name="proxy-Title">"Safe Combination Setup"</string>
+          <string name="proxy-Title">"Master Password Setup"</string>
           <string name="proxy-Tooltip text">""</string>
           <long name="proxy-Width">400</long>
           <string name="proxy-Window kind">"wxDialog"</string>
@@ -3989,7 +3989,7 @@
           <long name="proxy-X">-1</long>
           <string name="proxy-XRC filename">""</string>
           <long name="proxy-Y">-1</long>
-          <string name="title">"Safe Combination Setup"</string>
+          <string name="title">"Master Password Setup"</string>
           <long name="title-mode">0</long>
           <string name="type">"dialog-document"</string>
           <bool name="use-id-prefix">0</bool>
@@ -4536,7 +4536,7 @@ You can use any keyboard character. The combination is case-sensitive.
                 <string name="proxy-Id name">"ID_YUBISTATUS"</string>
                 <long name="proxy-Id value">10230</long>
                 <string name="proxy-Implementation filename">""</string>
-                <string name="proxy-Label">"Please insert your YubiKey"</string>
+                <string name="proxy-Label">"Insert YubiKey"</string>
                 <string name="proxy-Member variable name">"m_yubiStatusCtrl"</string>
                 <string name="proxy-Name">""</string>
                 <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
@@ -4848,7 +4848,7 @@ You can use any keyboard character. The combination is case-sensitive.
           <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
           <string name="proxy-Texture">""</string>
           <string name="proxy-Texture style">"Tiled"</string>
-          <string name="proxy-Title">"Enter Safe Combination"</string>
+          <string name="proxy-Title">"Enter Master Password"</string>
           <string name="proxy-Tooltip text">""</string>
           <long name="proxy-Width">400</long>
           <string name="proxy-Window kind">"wxDialog"</string>
@@ -4881,7 +4881,7 @@ You can use any keyboard character. The combination is case-sensitive.
           <long name="proxy-X">-1</long>
           <string name="proxy-XRC filename">""</string>
           <long name="proxy-Y">-1</long>
-          <string name="title">"Enter Safe Combination"</string>
+          <string name="title">"Enter Master Password"</string>
           <long name="title-mode">0</long>
           <string name="type">"dialog-document"</string>
           <bool name="use-id-prefix">0</bool>
@@ -5063,7 +5063,7 @@ You can use any keyboard character. The combination is case-sensitive.
                   <string name="proxy-Id name">"wxID_STATIC"</string>
                   <long name="proxy-Id value">5105</long>
                   <string name="proxy-Implementation filename">""</string>
-                  <string name="proxy-Label">"Please enter the safe combination for this password database."</string>
+                  <string name="proxy-Label">"Enter the Master Password to unlock password database:"</string>
                   <string name="proxy-Member variable name">""</string>
                   <string name="proxy-Name">""</string>
                   <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
@@ -5508,7 +5508,7 @@ combination:"</string>
                     <string name="proxy-Id name">"ID_YUBISTATUS"</string>
                     <long name="proxy-Id value">10230</long>
                     <string name="proxy-Implementation filename">""</string>
-                    <string name="proxy-Label">"Please insert your YubiKey"</string>
+                    <string name="proxy-Label">"Insert YubiKey"</string>
                     <string name="proxy-Member variable name">"m_yubiStatusCtrl"</string>
                     <string name="proxy-Name">""</string>
                     <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
@@ -7322,7 +7322,7 @@ combination:"</string>
           <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
           <string name="proxy-Texture">""</string>
           <string name="proxy-Texture style">"Tiled"</string>
-          <string name="proxy-Title">"Change Safe Combination"</string>
+          <string name="proxy-Title">"Change Master Password"</string>
           <string name="proxy-Tooltip text">""</string>
           <long name="proxy-Width">400</long>
           <string name="proxy-Window kind">"wxDialog"</string>
@@ -7355,7 +7355,7 @@ combination:"</string>
           <long name="proxy-X">-1</long>
           <string name="proxy-XRC filename">""</string>
           <long name="proxy-Y">-1</long>
-          <string name="title">"Change Safe Combination"</string>
+          <string name="title">"Change Master Password"</string>
           <long name="title-mode">0</long>
           <string name="type">"dialog-document"</string>
           <bool name="use-id-prefix">0</bool>
@@ -8157,7 +8157,7 @@ Type the new combination once again to confirm it."</string>
               <string name="proxy-Id name">"ID_YUBISTATUS"</string>
               <long name="proxy-Id value">10230</long>
               <string name="proxy-Implementation filename">""</string>
-              <string name="proxy-Label">"Please insert your YubiKey"</string>
+              <string name="proxy-Label">"Insert YubiKey"</string>
               <string name="proxy-Member variable name">"m_yubiStatusCtrl"</string>
               <string name="proxy-Name">""</string>
               <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
@@ -9218,7 +9218,7 @@ Type the new combination once again to confirm it."</string>
                 <string name="proxy-Id name">"wxID_STATIC"</string>
                 <long name="proxy-Id value">5105</long>
                 <string name="proxy-Implementation filename">""</string>
-                <string name="proxy-Label">"Copyright (c) 2003-2023 Rony Shapiro"</string>
+                <string name="proxy-Label">"Copyright (c) 2003-2025 Rony Shapiro"</string>
                 <string name="proxy-Member variable name">""</string>
                 <string name="proxy-Name">""</string>
                 <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
@@ -14476,7 +14476,7 @@ Action:"</string>
                   <long name="proxy-Id value">10115</long>
                   <string name="proxy-Implementation filename">""</string>
                   <bool name="proxy-Initial value">0</bool>
-                  <string name="proxy-Label">"Use Database Policy"</string>
+                  <string name="proxy-Label">"Use Named Policy"</string>
                   <string name="proxy-Member variable name">"m_defPWPRB"</string>
                   <string name="proxy-Name">""</string>
                   <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
@@ -23108,7 +23108,7 @@ Action:"</string>
                   <long name="proxy-Id value">10184</long>
                   <string name="proxy-Implementation filename">""</string>
                   <bool name="proxy-Initial value">0</bool>
-                  <string name="proxy-Label">"Start PasswordSafe at Login"</string>
+                  <string name="proxy-Label">"Start Password Safe at Login"</string>
                   <string name="proxy-Member variable name">""</string>
                   <string name="proxy-Name">""</string>
                   <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
@@ -23154,7 +23154,7 @@ Action:"</string>
                 <bool name="proxy-Hidden">0</bool>
                 <string name="proxy-Id name">"wxID_ANY"</string>
                 <long name="proxy-Id value">-1</long>
-                <string name="proxy-Label">"Recent PasswordSafe Databases"</string>
+                <string name="proxy-Label">"Recent Password Safe Databases"</string>
                 <string name="proxy-Member variable name">""</string>
                 <string name="proxy-Orientation">"Vertical"</string>
                 <string name="proxy-Parenting">"Use wxWidgets version"</string>

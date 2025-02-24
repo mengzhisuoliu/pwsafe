@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -101,6 +101,9 @@ bool DboxMain::ApplyFilter(bool bJustDoIt)
     m_bFilterActive = bActiveFilters;
   else
     m_bFilterActive = !m_bFilterActive;
+
+  // Set/Clear ActiveFilterName DB preference
+  PWSprefs::GetInstance()->SetPref(PWSprefs::ActiveFilterName, m_bFilterActive ? CurrentFilter().fname.c_str() : L"");
 
   ApplyFilters();
   return true;
@@ -332,7 +335,7 @@ void DboxMain::ExportFilters(PWSFilters &Filters)
                                                   L"filters.xml");
   cs_text.LoadString(IDS_NAMEXMLFILE);
   std::wstring dir;
-  if (!m_core.IsDbOpen())
+  if (!m_core.IsDbFileSet())
     dir = PWSdirs::GetSafeDir();
   else {
     std::wstring cdrive, cdir, dontCare;
@@ -393,7 +396,7 @@ void DboxMain::ImportFilters()
   }
 
   std::wstring dir;
-  if (!m_core.IsDbOpen())
+  if (!m_core.IsDbFileSet())
     dir = PWSdirs::GetSafeDir();
   else {
     std::wstring cdrive, cdir, dontCare;

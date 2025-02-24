@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -23,16 +23,14 @@ class CItemData;
 class PWScore;
 
 namespace PWSAuxParse {
-  // Used whenever entry values are needed for copy, autotype or run command
-  // For shortcuts and aliases, get values from base when appropriate
-  // For others, just get values from pci.
-  bool GetEffectiveValues(const CItemData *pci, const CItemData *pbci,
-                          StringX &sx_group, StringX &sx_title, StringX &sx_user,
-                          StringX &sx_pswd, StringX &sx_lastpswd,
-                          StringX &sx_notes, StringX &sx_url,
-                          StringX &sx_email, StringX &sx_autotype, StringX &sx_runcmd);
-
   
+  // GetEffectiveValues() should be used whenever entry values are needed for copy, autotype or run command
+  // For shortcuts and aliases, get values from base (pbci) when appropriate
+  // For others, just get values from pci.
+  // effectiveItemData will have the "normal" fields.
+  // prevPassword will be extracted from password history, and totpAuthCode will be calculated from TOTP values.
+  void GetEffectiveValues(const CItemData* pci, const CItemData* pbci, CItemData& effectiveItemData, StringX& prevPassword, StringX& totpAuthCode);
+
   // Call following with nullptr ci and/or empty sxCurrentDB
   // will only validate the run command (non-empty serrmsg means
   // parse failed, reason in same).
@@ -49,7 +47,7 @@ namespace PWSAuxParse {
                             const StringX &sxuser,
                             const StringX &sxpwd, const StringX &sxlastpwd,
                             const StringX &sxnotes, const StringX &sx_url,
-                            const StringX &sx_email,
+                            const StringX &sx_email, const StringX &sx_totpauthcode,
                             std::vector<size_t> &vactionverboffsets);
   StringX GetAutoTypeString(const CItemData &ci,
                             const PWScore &core,

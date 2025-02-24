@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -27,6 +27,7 @@
 #include "ManagePSWDPols.h"
 #include "HKModifiers.h"
 #include "YubiCfgDlg.h"
+#include "winutils.h"
 
 #include "core/core.h"
 #include "core/pwsprefs.h"
@@ -74,7 +75,7 @@ int DboxMain::BackupSafe()
   CString cs_temp, cs_title;
 
   std::wstring dir;
-  if (!m_core.IsDbOpen())
+  if (!m_core.IsDbFileSet())
     dir = PWSdirs::GetSafeDir();
   else {
     std::wstring cdrive, cdir, dontCare;
@@ -146,7 +147,7 @@ int DboxMain::RestoreSafe()
   cs_text.LoadString(IDS_PICKRESTORE);
 
   std::wstring dir;
-  if (!m_core.IsDbOpen())
+  if (!m_core.IsDbFileSet())
     dir = PWSdirs::GetSafeDir();
   else {
     std::wstring cdrive, cdir, dontCare;
@@ -231,6 +232,8 @@ int DboxMain::RestoreSafe()
   
   ChangeOkUpdate();
   RefreshViews();
+
+  UpdateForceAllowCaptureHandling();
 
   return PWScore::SUCCESS;
 }
@@ -620,9 +623,11 @@ void DboxMain::OnOptions()
   // Just in case we reset this being enabled
   prefs->SetPref(PWSprefs::HotKeyEnabled, bAppHotKeyEnabled == TRUE);
 
+  UpdateForceAllowCaptureHandling();
+
   // Update Minidump user streams
   app.SetMinidumpUserStreams(m_bOpen, !IsDBReadOnly(), usPrefs);
-  
+
   // Delete Options Property page
   delete pOptionsPS;
 }

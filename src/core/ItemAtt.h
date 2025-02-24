@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -14,10 +14,11 @@
 #include "Util.h"
 #include "Match.h"
 #include "Item.h"
-#include "os/UUID.h"
+#include "../os/UUID.h"
 #include "StringX.h"
 
 #include <time.h> // for time_t
+#include <bitset>
 
 //-----------------------------------------------------------------------------
 
@@ -70,6 +71,9 @@ public:
   void SetTitle(const StringX &title);
   void SetCTime(time_t t);
   void SetContent(const unsigned char *content, size_t clen);
+  void SetFileName(const StringX &fileName);
+  void SetFilePath(const StringX &filePath);
+  void SetMediaType(const StringX &mediaType);
 
   StringX GetTitle() const {return GetField(ATTTITLE);}
   void GetUUID(uuid_array_t &) const;

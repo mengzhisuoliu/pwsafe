@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1210"
+   LastUpgradeVersion = "1420"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -28,7 +28,8 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
       enableAddressSanitizer = "YES"
-      enableASanStackUseAfterReturn = "YES">
+      enableASanStackUseAfterReturn = "YES"
+      shouldAutocreateTestPlan = "YES">
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
@@ -45,8 +46,6 @@
             isEnabled = "YES">
          </AdditionalOption>
       </AdditionalOptions>
-      <TestPlans>
-      </TestPlans>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Release"

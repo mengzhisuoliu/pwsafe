@@ -1,0 +1,59 @@
+name: CMake Build
+
+on: [ push, pull_request ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: { }
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ 'windows-latest', 'ubuntu-latest' ] #, 'macos-latest' ]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4.1.1
+      with:
+        fetch-depth: 0
+
+
+    - name: Find MSVC (Windows)
+      if: ${{ runner.os == 'Windows' }}
+      uses: ilammy/msvc-dev-cmd@v1.13.0
+      with:
+        spectre: true
+
+    - name: Install packages (Linux)
+      if: ${{ runner.os == 'Linux' }}
+      run: |
+        sudo apt-get update
+        sudo ./Misc/setup-linux-dev-env.sh
+
+    - name: Configure
+      run: cmake -B build --preset release
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Test
+      run: cmake --build build --target test
+
+    - name: Build Windows Artifact
+      if: ${{ runner.os == 'Windows' }}
+      run: cpack -G 7Z -B build --config build\CPackConfig.cmake
+
+    - name: Upload Windows Artifact
+      if: ${{ runner.os == 'Windows' }}
+      uses: 'actions/upload-artifact@v4.3.1'
+      with:
+        name: PasswordSafe-Windows-7Z.${{ github.sha }}
+        path: build/passwordsafe-*.7z
+        if-no-files-found: error
+

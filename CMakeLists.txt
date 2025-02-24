@@ -117,7 +117,11 @@ if (NOT WIN32)
     if (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
       set( CMAKE_REQUIRED_INCLUDES "/usr/local/include" )
     endif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-  CHECK_INCLUDE_FILE("uuid/uuid.h" UUID_H)
+    if (${CMAKE_SYSTEM_NAME} MATCHES "OpenBSD")
+	  CHECK_INCLUDE_FILE("uuid.h" UUID_H)
+    else ()
+	  CHECK_INCLUDE_FILE("uuid/uuid.h" UUID_H)
+    endif (${CMAKE_SYSTEM_NAME} MATCHES "OpenBSD")
   if (NOT UUID_H)
     message(FATAL_ERROR
       "uuid.h not found - uuid-dev / libuuid-devel not installed?")
@@ -201,8 +205,6 @@ endif (NO_YUBI)
 if (WX_WINDOWS)
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D __WX__")
 endif (WX_WINDOWS)
-
-set(CMAKE_MFC_FLAG 1)  # Static MFC
 
 include(set-options-msvc)
 else ()
@@ -343,9 +345,11 @@ if (NOT WIN32)
                      COMMAND ${GZIP} ARGS -9 -n -c ${PROJECT_SOURCE_DIR}/docs/pwsafe.1 > pwsafe.1.gz
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
   ADD_CUSTOM_TARGET(manpage ALL DEPENDS ${CMAKE_BINARY_DIR}/pwsafe.1.gz)
-  install (FILES ${CMAKE_BINARY_DIR}/pwsafe.1.gz DESTINATION "share/man/man1") 
+  install (FILES ${CMAKE_BINARY_DIR}/pwsafe.1.gz DESTINATION "share/man/man1")
   install (FILES "install/desktop/pwsafe.desktop" DESTINATION "share/applications")
-  install (FILES "install/graphics/pwsafe.png" DESTINATION "share/icons/hicolor/48x48/apps/")
+  install (FILES "install/metainfo/org.pwsafe.pwsafe.metainfo.xml" DESTINATION "share/metainfo")
+  install (FILES "install/graphics/48x48/pwsafe.png" DESTINATION "share/icons/hicolor/48x48/apps/")
+  install (FILES "install/graphics/128x128/pwsafe.png" DESTINATION "share/icons/hicolor/128x128/apps/")
   install (DIRECTORY "${CMAKE_BINARY_DIR}/src/ui/wxWidgets/I18N/mos/"
            DESTINATION "share/locale")
 
@@ -417,9 +421,10 @@ endif (pwsafe_SPECIALBUILD)
 #
 set (CPACK_PACKAGE_CONTACT "Rony Shapiro <ronys@pwsafe.org>")
 set (CPACK_PACKAGE_VENDOR "Rony Shapiro")
-set (CPACK_PACKAGE_DESCRIPTION_SUMMARY "Password Safe is a password database utility.")
+set (CPACK_PACKAGE_DESCRIPTION_SUMMARY "Password Safe is a password management  utility.")
 set (CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set (CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/install/description.txt")
+set (CPACK_PACKAGE_URL "https://pwsafe.org/")
 set (CPACK_STRIP_FILES "TRUE")
 
 #
@@ -495,6 +500,7 @@ endif(LSB_RELEASE_EXECUTABLE)
 
 if (RELEASE_ID_SHORT)
   string(TOLOWER ${RELEASE_ID_SHORT} DISTRO_NAME)
+  string(REPLACE "\"" "" DISTRO_NAME ${DISTRO_NAME})
 endif (RELEASE_ID_SHORT)
 
 #
@@ -517,7 +523,7 @@ endif ()
 #
 # Build name of package file (e.g. passwordsafe-ubuntu18-1.08.1-BETA-amd64.deb)
 #
-set (CPACK_PACKAGE_FILE_NAME ${CPACK_PACKAGE_NAME}-${DISTRO_NAME}${DISTRO_MAJOR_VERSION}-${CPACK_PACKAGE_VERSION}${PACKAGE_ARCHITECTURE})
+set (CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${DISTRO_NAME}${DISTRO_MAJOR_VERSION}-${CPACK_PACKAGE_VERSION}${PACKAGE_ARCHITECTURE}")
 
 # Post-build stuff: e.g., sign the package
 set(CPACK_POST_BUILD_SCRIPTS "${PROJECT_SOURCE_DIR}/CMakeModules/PostBuild.cmake")
@@ -552,18 +558,25 @@ if (${RELEASE_ID_SHORT} STREQUAL "Ubuntu")
   else (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "18.0")
     set (LIBCURL "libcurl3 (>= 7.47.0)")
   endif (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "18.0")
+
   if (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "19.0")
     set (LIBQRENCODE "libqrencode4 (>= 4.0.2-1)")
   else (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "19.0")
     set (LIBQRENCODE "libqrencode3 (>= 3.4.4-1)")
   endif (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "19.0")
-  if (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "22.10")
+
+  if (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "23.04")
+    set (LIBWX  "libwxgtk3.2-1 (>= 3.2.0)")
+  elseif (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "22.10")
     set (LIBWX  "libwxgtk3.2-0 (>= 3.2.0)")
+   elseif (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "22.04")
+    set (LIBWX  "libwxgtk3.0-gtk3-0v5 (>= 3.0.5)")
   elseif (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "20.0")
     set (LIBWX  "libwxgtk3.0-gtk3-0v5 (>= 3.0.4)")
-  else (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "22.10")
+  else (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "23.04")
     set (LIBWX  "libwxgtk3.0-0v5 (>= 3.0.0-2) | libwxgtk3.0-0 (>= 3.0.0-2)")
-  endif (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "22.10")
+  endif (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "23.04")
+
   string(REGEX REPLACE "([0-9]+)\\.([0-9]+)\\.[0-9]+" "\\1.\\2" XercesC_VER ${XercesC_VERSION})
   set (CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.11.1-0ubuntu7.2), ${LIBCURL}, libmagic1 (>= 1:5.25), libuuid1 (>= 2.17.2-0ubuntu1), ${LIBWX}, libxtst6 (>= 2:1.1.0-2), libxerces-c${XercesC_VER} (>= 3.1.0-1), libykpers-1-1 (>= 1.7.0-1), ${LIBQRENCODE}")
 endif (${RELEASE_ID_SHORT} STREQUAL "Ubuntu")
@@ -580,14 +593,20 @@ if ((${RELEASE_ID_SHORT} STREQUAL "Debian") OR (${RELEASE_ID_SHORT} STREQUAL "Ra
     set (LIBQRENCODE "libqrencode3 (>= 3.4.4-1+b2)")
   endif (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "10")
   set (CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.7-18lenny4), ${LIBCURL}, libmagic1 (>= 1:5.22), libuuid1 (>= 1.41.3-1),
-                                     libwxgtk3.0-0 (>= 3.0.0-2) | libwxgtk3.0-0v5 (>= 3.0.0-2) | libwxgtk3.0-gtk3-0v5 (>= 3.0.5.1),
+                                     libwxgtk3.0-0 (>= 3.0.0-2) | libwxgtk3.0-0v5 (>= 3.0.0-2) | 
+                                     libwxgtk3.0-gtk3-0v5 (>= 3.0.5.1) | libwxgtk3.2-1 (>= 3.2.2+dfsg-2),
                                      libxtst6 (>= 2:1.0.3-1), ${LIBXERCES}, libykpers-1-1 (>= 1.7.0-1), ${LIBQRENCODE}")
   set (CPACK_DEBIAN_PACKAGE_RECOMMENDS "xvkbd (>= 3.3-1+b1)")
 endif ((${RELEASE_ID_SHORT} STREQUAL "Debian") OR (${RELEASE_ID_SHORT} STREQUAL "Raspbian"))
 
 if ((${RELEASE_ID_SHORT} STREQUAL "LinuxMint") OR (${RELEASE_ID_SHORT} STREQUAL "Linuxmint"))
   ## LinuxMint-specific:
-  if (NOT ${RELEASE_NUM_SHORT} VERSION_LESS_EQUAL "19.3")
+  if (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "22")
+  set (LIBCURL "libcurl4 (>= 7.58.0)")
+  set (LIBXERCES "libxerces-c3.2 (>= 3.1.0-1)")
+  set (LIBQRENCODE "libqrencode4 (>= 4.0.2-1)")
+  set (LIBWX  "libwxgtk3.2-1 (>= 3.0.4)")
+  elseif (NOT ${RELEASE_NUM_SHORT} VERSION_LESS_EQUAL "19.3")
     set (LIBCURL "libcurl4 (>= 7.58.0)")
     set (LIBXERCES "libxerces-c3.2 (>= 3.1.0-1)")
     set (LIBQRENCODE "libqrencode4 (>= 4.0.2-1)")
@@ -602,7 +621,7 @@ if ((${RELEASE_ID_SHORT} STREQUAL "LinuxMint") OR (${RELEASE_ID_SHORT} STREQUAL 
     set (LIBXERCES "libxerces-c3.1 (>= 3.1.3+debian-1)")
     set (LIBQRENCODE "libqrencode3 (>= 3.4.4)")
     set (LIBWX  "libwxgtk3.0-0v5 (>= 3.0.0-2) | libwxgtk3.0-0 (>= 3.0.0-2)")
-  endif (NOT ${RELEASE_NUM_SHORT} VERSION_LESS_EQUAL "19.3")
+  endif (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "22")
   set (CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.11.1-0ubuntu7.2), ${LIBCURL}, libmagic1 (>= 1:5.25), libuuid1 (>= 2.17.2-0ubuntu1), ${LIBWX}, libxtst6 (>= 2:1.1.0-2), ${LIBXERCES}, libykpers-1-1 (>= 1.7.0), ${LIBQRENCODE}")
 endif ((${RELEASE_ID_SHORT} STREQUAL "LinuxMint") OR (${RELEASE_ID_SHORT} STREQUAL "Linuxmint"))
 
@@ -622,7 +641,14 @@ if (RELEASE_ID_SHORT)
                          libwx_gtk2u_html-suse3_0_5, wxWidgets-lang")
     elseif (${RELEASE_ID_SHORT} STREQUAL "fedora")
     ## Fedora-specific
-        set (RPM_PACKAGES "wxBase3, wxGTK3, xerces-c, ykpers, qrencode-libs, file-libs")
+      if (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "39")
+        set (LIBWXBASE "wxBase")
+        set (LIBWXGTK "wxGTK")
+      else (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "39")
+        set (LIBWXBASE "wxBase3")
+        set (LIBWXGTK "wxGTK3")
+      endif (NOT ${RELEASE_NUM_SHORT} VERSION_LESS "39")
+      set (RPM_PACKAGES "${LIBWXBASE}, ${LIBWXGTK}, xerces-c, ykpers, qrencode-libs, file-libs")
     endif (${RELEASE_ID_SHORT} STREQUAL "openSUSE")
 endif (RELEASE_ID_SHORT)
 

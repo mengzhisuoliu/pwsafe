@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -990,6 +990,17 @@ CSecEditExtn::~CSecEditExtn()
   delete m_pImpl;
 }
 
+BOOL CSecEditExtn::PreTranslateMessage(MSG* pMsg)
+{
+  // Clear the text when Ctrl + Backspace is pressed
+  if (pMsg->message == WM_KEYDOWN && (GetKeyState(VK_CONTROL) & 0x8000) && pMsg->wParam == VK_BACK)
+    {
+      SetWindowText(_T(""));
+      return TRUE;
+    }
+  return CEdit::PreTranslateMessage(pMsg);
+}
+
 void CSecEditExtn::SetSecure(bool on_off)
 {
   m_secure = on_off;
@@ -1364,8 +1375,8 @@ void CButtonBitmapExtn::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
   // Scale for DPI stuff
   // from https://docs.microsoft.com/en-us/windows/win32/hidpi/high-dpi-desktop-application-development-on-windows
   int dpi = WinUtil::GetDPI(m_hWnd);
-  int dpiScaledWidth = MulDiv(bitMapInfo.bmWidth, dpi, 96);
-  int dpiScaledHeight = MulDiv(bitMapInfo.bmHeight, dpi, 96);
+  int dpiScaledWidth = MulDiv(bitMapInfo.bmWidth, dpi, WinUtil::defDPI);
+  int dpiScaledHeight = MulDiv(bitMapInfo.bmHeight, dpi, WinUtil::defDPI);
 
   WinUtil::ResizeBitmap(bmp, scaledBmp, dpiScaledWidth, dpiScaledHeight);
   bmp.DeleteObject();

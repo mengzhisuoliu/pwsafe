@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -12,6 +12,7 @@
 #include "PasswordSafe.h"
 #include "ThisMfcApp.h"
 #include "DboxMain.h"
+#include "winutils.h"
 
 #include "WZPropertySheet.h"
 #include "WZPropertyPage.h"
@@ -111,6 +112,15 @@ INT_PTR CWZPropertySheet::DoModal()
     if (bAccEn)app.EnableAccelerator();
 
   return rc;
+}
+
+BOOL CWZPropertySheet::OnInitDialog()
+{
+  BOOL bResult = CPropertySheet::OnInitDialog();
+  CScreenCaptureStateControl::SetLastDisplayAffinityError(
+    WinUtil::SetWindowExcludeFromScreenCapture(m_hWnd, app.IsExcludeFromScreenCapture())
+  );
+  return bResult;
 }
 
 BOOL CWZPropertySheet::PreTranslateMessage(MSG *pMsg)

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -13,7 +13,7 @@
 #include <set>
 #include <list>
 
-#include "os/UUID.h"
+#include "../os/UUID.h"
 #include "ItemData.h"
 #include "ItemAtt.h"
 
@@ -121,6 +121,7 @@ typedef KBShortcutMap::const_iterator KBShortcutMapConstIter;
 typedef std::pair<int32, pws_os::CUUID> KBShortcutMapPair;
 
 struct PopulatePWPVector {
+  PopulatePWPVector(const PopulatePWPVector&) = default;
   PopulatePWPVector(std::vector<StringX> *pvPWPolicies) :
     m_pvPWPolicies(pvPWPolicies) {}
 

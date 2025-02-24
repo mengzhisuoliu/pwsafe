@@ -3,7 +3,7 @@
 ; Password Safe Installation Script
 ;
 ; Copyright 2004, David Lacy Kusters (dkusters@yahoo.com)
-; Copyright 2005-2023 Rony Shapiro <ronys@pwsafe.org>
+; Copyright 2005-2025 Rony Shapiro <ronys@pwsafe.org>
 ; 2009 extended by Karel Van der Gucht for multiple language use
 ; This script may be redistributed and/or modified under the Artistic
 ; License 2.0 terms as available at 
@@ -43,13 +43,17 @@
 ;    or in the Start Menu, for easy access.  
 ;
 ; 2. The installer optionally places four registry values in 
-;    HKCU\Software\Password Safe\Password Safe.  These registry
+;    HKLM\Software\Password Safe\Password Safe.  These registry
 ;    values are for the use of the installer itself.  Password Safe
 ;    does not rely on these registry values.  If the installer is not
 ;    used, or if a "Green" installation is selected (see below), these
 ;    registry values are not created. 
 ;
-; 3. The installer will create an uninstaller and place an entry to
+; 3. In addition, HKLM "Software\Password Safe\Admin is used to disable
+;    the screen capture protection, if the relevant checkbox is cleared.
+;    This is also skipped when a "Green" installation is selected.
+;
+; 4. The installer will create an uninstaller and place an entry to
 ;    uninstall Password Safe in the Add or Remove Programs Wizard.
 ;
 ; As of PasswordSafe 3.05, this script allows users to choose
@@ -168,6 +172,12 @@ Unicode true
   !define FULL_VERSION ${VERSION}
 !endif
 
+;--------------------------------
+; Set installer and uninstaller icons
+!define MUI_ICON "..\..\src\ui\Windows\graphics\cpane.ico"
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_BITMAP "..\graphics\pwsafe-150x57.bmp"
+!define MUI_UNICON "..\..\src\ui\Windows\graphics\cpane.ico"
 
 ;--------------------------------
 ;Variables
@@ -176,6 +186,9 @@ Unicode true
   
   ;Request application privileges for Windows Vista and later.
   RequestExecutionLevel admin
+
+  ; Error message to use if screen capture protection default setting handling fails.
+  Var ScrCapErrMsg
 
 ;--------------------------------
 ; Pages
@@ -200,8 +213,7 @@ Unicode true
     ; Name and file
     Name "Password Safe ${FULL_VERSION} (32-bit)"
     BrandingText "Password Safe ${FULL_VERSION} (32-bit) Installer"
-    !define LANG_DLL "..\..\out\build\x86-Release\I18N"
-    !define BIN_DIR "..\..\out\build\x86-Release\Release"
+    !define BIN_DIR "..\..\out\build\windows-x86-release\"
     !define TARGET_ARCH "(32-bit)"
     !echo "Building x86 installer"
   !else if ${ARCH} == "x64" 
@@ -210,13 +222,14 @@ Unicode true
     ; Name and file
     Name "Password Safe ${FULL_VERSION} (64-bit)"
     BrandingText "Password Safe ${FULL_VERSION} (64-bit) Installer"
-    !define LANG_DLL "..\..\out\build\x64-Release\I18N"
-    !define BIN_DIR "..\..\out\build\x64-Release\Release"
+    !define BIN_DIR "..\..\out\build\windows-x64-release\"
     !define TARGET_ARCH "(64-bit)"
     !echo "Building x64 installer"
   !else
     !error "ARCH must be either x86 or x64"
   !endif
+
+  !define LANG_DLL_DIR "${BIN_DIR}I18N"
   
   ; Get installation folder from registry if available
   InstallDirRegKey HKCU "Software\Password Safe\Password Safe" "installdir"
@@ -261,6 +274,8 @@ Unicode true
   !include ".\I18N\pwsafe_sl.lng"
   !insertmacro MUI_LANGUAGE "Arabic"
   !include ".\I18N\pwsafe_ar-jo.lng"
+  !insertmacro MUI_LANGUAGE "Latvian"
+  !include ".\I18N\pwsafe_lv.lng"
 
 ; English texts here
 ; Note that if we add a string, it needs to be added in all the
@@ -286,6 +301,9 @@ LangString START_SHORTCUT ${LANG_ENGLISH} "Install desktop shortcut"
 ; Uninstall shortcut
 LangString UNINSTALL_SHORTCUT ${LANG_ENGLISH} "Uninstall shortcut"
 
+; Screen capture protection.
+LangString SCRCAP_PROTECTION ${LANG_ENGLISH} "Screen capture protection"
+
 ; Descriptions
 LangString DESC_ProgramFiles ${LANG_ENGLISH} "Installs the basic files necessary to run Password Safe."
 LangString DESC_CliTool ${LANG_ENGLISH} "Installs pwsafe-cli, a command line utility."
@@ -294,6 +312,7 @@ LangString DESC_StartMenu ${LANG_ENGLISH} "Creates an entry in the start menu fo
 LangString DESC_DesktopShortcut ${LANG_ENGLISH} "Places a shortcut to Password Safe on your desktop."
 LangString DESC_UninstallMenu ${LANG_ENGLISH} "Places a shortcut in the start menu to Uninstall Password Safe."
 LangString DESC_LangSupport ${LANG_ENGLISH} "Please select the language(s) that Password Safe will use."
+LangString DESC_ScrCapProtection ${LANG_ENGLISH} "Enables screen capture protection."
 
 ; "LangString" (for "Function GreenOrRegular") are setup here because they cannot be defined in the function body
 LangString TEXT_GC_TITLE ${LANG_ENGLISH} "Installation Type"
@@ -326,13 +345,16 @@ LangString TURKISH_SUPPORT ${LANG_ENGLISH} "Turkish"
 LangString HUNGARIAN_SUPPORT ${LANG_ENGLISH} "Hungarian"
 LangString SLOVENIAN_SUPPORT ${LANG_ENGLISH} "Slovenian"
 LangString ARABIC_SUPPORT ${LANG_ENGLISH} "Arabic"
-
+LangString LATVIAN_SUPPORT ${LANG_ENGLISH} "Latvian"
 
 LangString LANG_PROGRAM ${LANG_ENGLISH} "Program Language"
 LangString SORRY_NO_95 ${LANG_ENGLISH} "Sorry, Windows 95 is no longer supported.$\r$\nTry Password Safe 2.16"
 LangString SORRY_NO_98 ${LANG_ENGLISH} "Sorry, Windows 98 is no longer supported.$\r$\nTry Password Safe 2.16"
 LangString SORRY_NO_ME ${LANG_ENGLISH} "Sorry, Windows ME is no longer supported.$\r$\nTry Password Safe 2.16"
 LangString SORRY_NO_2K ${LANG_ENGLISH} "Sorry, Windows 2000 is no longer supported.$\r$\nTry Password Safe 3.18"
+
+LangString SORRY_CANNOT_DISABLE_SCRCAP ${LANG_ENGLISH} "An error occurred disabling screen capture protection. Screen capture protection is not disabled."
+LangString SORRY_CANNOT_ENABLE_SCRCAP ${LANG_ENGLISH} "An error occurred setting screen capture protection to default (enabled)."
 
 LangString Icon_description_Uninstall ${LANG_ENGLISH} "Password Safe Uninstall"
 LangString Icon_description_Help ${LANG_ENGLISH} "Password Safe Help"
@@ -361,8 +383,8 @@ VIAddVersionKey "ProductName" "Password Safe ${TARGET_ARCH}"
 VIAddVersionKey "ProductVersion" "${VERSION} ${TARGET_ARCH}"
 VIAddVersionKey "Comments" "Password Safe installer by Rony Shapiro"
 VIAddVersionKey "CompanyName" "Rony Shapiro"
-VIAddVersionKey "LegalTrademarks" "Copyright (c) 2005-2023 Rony Shapiro"
-VIAddVersionKey "LegalCopyright" "Copyright (c) 2005-2023 Rony Shapiro"
+VIAddVersionKey "LegalTrademarks" "Copyright (c) 2005-2025 Rony Shapiro"
+VIAddVersionKey "LegalCopyright" "Copyright (c) 2005-2025 Rony Shapiro"
 VIAddVersionKey "FileDescription" "Password Safe Installer ${TARGET_ARCH}"
 VIAddVersionKey "FileVersion" "${VERSION} ${TARGET_ARCH}"
 
@@ -444,93 +466,98 @@ Section  "$(ENGLISH_SUPPORT)" EnglishSection
 SectionEnd
 Section /o "$(CHINESE_CN_SUPPORT)" ChineseSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeZH.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeZH.dll"
   File /nonfatal "..\..\help\pwsafeZH\pwsafeZH.chm"
 SectionEnd
 Section /o "$(CHINESE_TW_SUPPORT)" ChineseTWSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeZH_TW.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeZH_TW.dll"
   File /nonfatal "..\..\help\pwsafeZH\pwsafeZH_TW.chm"
 SectionEnd
 Section /o "$(GERMAN_SUPPORT)" GermanSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeDE.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeDE.dll"
   File /nonfatal "..\..\help\pwsafeDE\pwsafeDE.chm"
 SectionEnd
 Section /o "$(SPANISH_SUPPORT)" SpanishSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeES.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeES.dll"
   File /nonfatal "..\..\help\pwsafeES\pwsafeES.chm"
 SectionEnd
 Section /o "$(SWEDISH_SUPPORT)" SwedishSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeSV.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeSV.dll"
   File /nonfatal "..\..\help\pwsafeSV\pwsafeSV.chm"
 SectionEnd
 Section /o "$(DUTCH_SUPPORT)" DutchSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeNL.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeNL.dll"
   File /nonfatal "..\..\help\pwsafeNL\pwsafeNL.chm"
 SectionEnd
 Section /o "$(FRENCH_SUPPORT)" FrenchSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeFR.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeFR.dll"
   File /nonfatal "..\..\help\pwsafeFR\pwsafeFR.chm"
 SectionEnd
 Section /o "$(RUSSIAN_SUPPORT)" RussianSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeRU.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeRU.dll"
   File /nonfatal "..\..\help\pwsafeRU\pwsafeRU.chm"
 SectionEnd
 Section /o "$(POLISH_SUPPORT)" PolishSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafePL.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafePL.dll"
   File /nonfatal "..\..\help\pwsafePL\pwsafePL.chm"
 SectionEnd
 Section /o "$(ITALIAN_SUPPORT)" ItalianSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeIT.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeIT.dll"
   File /nonfatal "..\..\help\pwsafeIT\pwsafeIT.chm"
 SectionEnd
 Section /o "$(DANISH_SUPPORT)" DanishSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeDK.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeDK.dll"
   File /nonfatal "..\..\help\pwsafeDA\pwsafeDA.chm"
 SectionEnd
 Section /o "$(KOREAN_SUPPORT)" KoreanSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeKR.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeKR.dll"
   File /nonfatal "..\..\help\pwsafeKR\pwsafeKR.chm"
 SectionEnd
 Section /o "$(PORTUGUESEBR_SUPPORT)" PortugueseBRSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafePT_BR.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafePT_BR.dll"
   File /nonfatal "..\..\help\pwsafeKR\pwsafePT_BR.chm"
 SectionEnd
 Section /o "$(CZECH_SUPPORT)" CzechSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeCZ.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeCZ.dll"
   File /nonfatal "..\..\help\pwsafeCZ\pwsafeCZ.chm"
 SectionEnd
 Section /o "$(TURKISH_SUPPORT)" TurkishSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeTR.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeTR.dll"
   File /nonfatal "..\..\help\pwsafeTR\pwsafeTR.chm"
 SectionEnd
 Section /o "$(HUNGARIAN_SUPPORT)" HungarianSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeHU.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeHU.dll"
   File /nonfatal "..\..\help\pwsafeHU\pwsafeHU.chm"
 SectionEnd
 Section /o "$(SLOVENIAN_SUPPORT)" SlovenianSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeSL.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeSL.dll"
   File /nonfatal "..\..\help\pwsafeSL\pwsafeSL.chm"
 SectionEnd
 Section /o "$(ARABIC_SUPPORT)" ArabicSection
   SetOutPath "$INSTDIR"  
-  File /nonfatal "${LANG_DLL}\pwsafeAR.dll"
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeAR.dll"
   File /nonfatal "..\..\help\pwsafeAR\pwsafeAR.chm"
+SectionEnd
+Section /o "$(LATVIAN_SUPPORT)" LatvianSection
+  SetOutPath "$INSTDIR"  
+  File /nonfatal "${LANG_DLL_DIR}\pwsafeLV.dll"
+  File /nonfatal "..\..\help\pwsafeLV\pwsafeLV.chm"
 SectionEnd
 SectionGroupEnd
 
@@ -629,6 +656,110 @@ Section "$(START_SHORTCUT)" DesktopShortcut
 SectionEnd
 
 ;--------------------------------
+; Screen capture protection
+
+Function ScrCapErrorHandler
+    Pop $0
+    IfSilent +2 0
+    MessageBox MB_OK|MB_ICONSTOP "$ScrCapErrMsg ($0)"
+    SetErrorlevel $0
+    SetErrors
+    SetRegView Default
+    Abort
+FunctionEnd
+
+Function ScrCapCreateAdminKey
+  WriteRegStr HKLM "Software\Password Safe\Admin" "" "Admin"
+  Pop $0
+
+  ClearErrors
+  ReadRegStr $0 HKLM "Software\Password Safe\Admin" ""
+  IfErrors 0 +3
+  Push 10001
+  Call ScrCapErrorHandler
+FunctionEnd
+
+Section "$(SCRCAP_PROTECTION)" ScrCapProtection
+  IntCmp $INSTALL_TYPE 1 GreenInstall_1
+
+  ; Establish the error message to use for failures while ensuring default screen capture protection.
+  StrCpy $ScrCapErrMsg "$(SORRY_CANNOT_ENABLE_SCRCAP)"
+
+  ; NSIS installer is always 32-bits.
+  ; Set registry affected based on bitness of pwsafe.
+  !if ${ARCH} == "x86"
+    SetRegView 32
+  !else if ${ARCH} == "x64"
+    SetRegView 64
+  !else
+    !error "ARCH must be either x86 or x64"
+  !endif
+
+  ; Ensure the "Software\Password Safe\Admin" is present and admin-only.
+  Call ScrCapCreateAdminKey
+
+  ; Delete the ScreenCaptureProtection value if present.
+  DeleteRegValue HKLM "Software\Password Safe\Admin" "ScreenCaptureProtection"
+
+  ; Ensure the ScreenCaptureProtection value is not present.
+  ClearErrors
+  ReadRegDWORD $0 HKLM "Software\Password Safe\Admin" "ScreenCaptureProtection"
+  IfErrors +3 0
+  Push 10005
+  Call ScrCapErrorHandler
+
+  SetRegView Default
+GreenInstall_1:
+SectionEnd
+
+Section /o -DisableScrCapProtection SidDisableScrCapProtection
+  IntCmp $INSTALL_TYPE 1 GreenInstall_2
+
+  ; Establish the error message to use for failures while disabling screen capture protection.
+  StrCpy $ScrCapErrMsg "$(SORRY_CANNOT_DISABLE_SCRCAP)"
+
+  ; NSIS installer is always 32-bits.
+  ; Set registry affected based on bitness of pwsafe.
+  !if ${ARCH} == "x86"
+    SetRegView 32
+  !else if ${ARCH} == "x64"
+    SetRegView 64
+  !else
+    !error "ARCH must be either x86 or x64"
+  !endif
+
+  ; Ensure the "Software\Password Safe\Admin" is present and admin-only.
+  Call ScrCapCreateAdminKey
+
+  ; Add the ScreenCaptureProtection = 0 value to disable screen capture protection.
+  WriteRegDWORD HKLM "Software\Password Safe\Admin" "ScreenCaptureProtection" 0x00000000
+  Pop $0
+
+  ; Ensure the ScreenCaptureProtection value is present.
+  ClearErrors
+  ReadRegDWORD $0 HKLM "Software\Password Safe\Admin" "ScreenCaptureProtection"
+  IfErrors 0 +3
+  Push 10006
+  Call ScrCapErrorHandler
+
+  ${If} $0 != "0"
+    Push 10007
+    Call ScrCapErrorHandler
+  ${EndIf}
+
+  SetRegView Default
+GreenInstall_2:
+SectionEnd
+
+Function .onSelChange
+${If} ${SectionIsSelected} ${ScrCapProtection}
+    !insertmacro UnselectSection ${SidDisableScrCapProtection}
+${Else}
+    !insertmacro SelectSection ${SidDisableScrCapProtection}
+${EndIf}
+FunctionEnd
+
+;--------------------------------
 ; Descriptions
   
   ; Assign language strings to sections
@@ -640,6 +771,7 @@ SectionEnd
     !insertmacro MUI_DESCRIPTION_TEXT ${UninstallMenu} $(DESC_UninstallMenu)
     !insertmacro MUI_DESCRIPTION_TEXT ${DesktopShortcut} $(DESC_DesktopShortcut)
     !insertmacro MUI_DESCRIPTION_TEXT ${LanguageSupport} $(DESC_LangSupport)
+    !insertmacro MUI_DESCRIPTION_TEXT ${ScrCapProtection} $(DESC_ScrCapProtection)
   !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ;--------------------------------
@@ -694,6 +826,9 @@ Section "Uninstall"
   Delete "$INSTDIR\pwsafeKR.chm"
   Delete "$INSTDIR\pwsafeKR.chw"
   Delete "$INSTDIR\pwsafeKR.dll"
+  Delete "$INSTDIR\pwsafeLV.chm"
+  Delete "$INSTDIR\pwsafeLV.chw"
+  Delete "$INSTDIR\pwsafeLV.dll"
   Delete "$INSTDIR\pwsafeNL.chm"
   Delete "$INSTDIR\pwsafeNL.chw"
   Delete "$INSTDIR\pwsafeNL.dll"
@@ -734,6 +869,17 @@ Section "Uninstall"
   RMDir /r "$SMPROGRAMS\Password Safe"
   Delete "$DESKTOP\Password Safe.lnk"
   Delete "$SMSTARTUP\Password Safe.lnk"
+
+  ; Delete the Password Safe HKLM registry key.
+  !if ${ARCH} == "x86"
+    SetRegView 32
+  !else if ${ARCH} == "x64"
+    SetRegView 64
+  !else
+    !error "ARCH must be either x86 or x64"
+  !endif
+  DeleteRegKey HKLM "Software\Password Safe"
+  SetRegView Default
 
 SectionEnd
 
@@ -829,6 +975,8 @@ Function .onInit
   Push "Slovenian"
   Push ${LANG_ARABIC}
   Push "Arabic"
+  Push ${LANG_LATVIAN}
+  Push "Latvian"
   Push A ; A means auto count languages
          ; for the auto count to work the first empty push (Push "") must remain
   LangDLL::LangDialog $(LANG_INSTALL) $(LANG_SELECT)
@@ -871,6 +1019,8 @@ Function .onInit
   SectionSetFlags ${SlovenianSection} ${SF_SELECTED}
   StrCmp $LANGUAGE ${LANG_ARABIC} 0 +2
   SectionSetFlags ${ArabicSection} ${SF_SELECTED}
+  StrCmp $LANGUAGE ${LANG_LATVIAN} 0 +2
+  SectionSetFlags ${LatvianSection} ${SF_SELECTED}
 
   ;
   ; Check if this is an upgrade or not. If so, default "startup" to

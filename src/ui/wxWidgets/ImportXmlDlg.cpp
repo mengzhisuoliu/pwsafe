@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -43,11 +43,11 @@ ImportXmlDlg::ImportXmlDlg(wxWindow *parent, const wxString& filename) : wxDialo
   wxBoxSizer* dlgSizer = new wxBoxSizer(wxVERTICAL);
   dlgSizer->AddSpacer(TopMargin);
 
-  dlgSizer->Add(new wxStaticText(this, wxID_ANY, _("XML file to import:")), borderFlags);
+  dlgSizer->Add(new wxStaticText(this, wxID_ANY, _("Import XML file:")), borderFlags);
   dlgSizer->AddSpacer(RowSeparation/2);
   OpenFilePickerValidator validator(filepath);
   dlgSizer->Add(new wxFilePickerCtrl(this, wxID_ANY, filepath,
-                                          _("Please Choose a XML File to Import"), 
+                                          _("Choose an XML File to Import"), 
                                           _("XML files (*.xml)|*.xml"), 
                                           wxDefaultPosition, wxDefaultSize, 
                                           wxFLP_DEFAULT_STYLE | wxFLP_USE_TEXTCTRL, 

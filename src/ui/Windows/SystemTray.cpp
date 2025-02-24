@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -736,7 +736,7 @@ LRESULT CSystemTray::OnTrayNotification(WPARAM wParam, LPARAM lParam)
     }
     m_menulist.clear();
     menu.DestroyMenu();
-  } else if (LOWORD(lParam) == WM_LBUTTONDBLCLK) { // WM_RBUTTONUP
+  } else if (LOWORD(lParam) == WM_LBUTTONUP) { // WM_RBUTTONUP
     ASSERT(m_pTarget != NULL);
     // double click received, the default action is to execute default menu item
     m_pTarget->SetForegroundWindow();  
@@ -756,7 +756,7 @@ LRESULT CSystemTray::OnTrayNotification(WPARAM wParam, LPARAM lParam)
 
     m_pTarget->SendMessage(WM_COMMAND, uItem, 0);
     menu.DestroyMenu();
-  } // WM_LBUTTONDBLCLK
+  } // WM_LBUTTONUP
   return 1L;
 }
 

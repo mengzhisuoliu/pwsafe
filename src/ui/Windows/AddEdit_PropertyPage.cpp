@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -39,13 +39,40 @@ BOOL CAddEdit_PropertyPage::OnQueryCancel()
 {
   // Check whether there have been any changes in order to ask the user
   // if they really want to cancel
-  // QuerySiblings is only sent to loaded PropertyPages (i.e. user has
+  // QuerySiblings is only sent to loaded PropertyPages (i.e., user has
   // selected to view them as ones not yet loaded cannot have changed fields)
   if (QuerySiblings(PP_DATA_CHANGED, 0L) != 0L) {
     CGeneralMsgBox gmb;
-    if (gmb.AfxMessageBox(IDS_AREYOUSURE,
-                          MB_YESNO | MB_ICONEXCLAMATION | MB_DEFBUTTON2) == IDNO)
+    std::vector<std::tuple<int, int>> tuples = {
+      std::make_tuple(IDYES, IDS_DISCARD),
+      std::make_tuple(IDCANCEL, IDS_CANCEL)
+    };
+    if (gmb.AfxMessageBox(IDS_AREYOUSURE, nullptr, tuples, 1, MB_ICONEXCLAMATION) == IDCANCEL)
       return FALSE;
   }
   return CPWPropertyPage::OnQueryCancel();
+}
+
+BOOL CAddEdit_PropertyPage::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
+{
+  ASSERT(pResult != NULL);
+  NMHDR* pNMHDR = (NMHDR*)lParam;
+
+  if (pNMHDR->code == PSN_QUERYINITIALFOCUS) {
+    CWnd* pCtl = GetDlgItem(IDC_TITLE);
+    if (pCtl) {
+      *pResult = (LRESULT)pCtl->m_hWnd;
+      return TRUE;
+    }
+  }
+  return CPropertyPage::OnNotify(wParam, lParam, pResult);
+}
+
+CItemData* CAddEdit_PropertyPage::M_pci_credential()
+{
+  if (!M_pci())
+    return nullptr;
+  if (!M_pci()->IsAlias())
+    return M_pci();
+  return M_pcore()->GetBaseEntry(M_pci());
 }

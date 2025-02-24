@@ -22,20 +22,20 @@ POS := pwsafe.pot pos/pwsafe_ar.po \
 	pos/pwsafe_it.po pos/pwsafe_fr.po pos/pwsafe_dk.po \
 	pos/pwsafe_kr.po pos/pwsafe_sv.po pos/pwsafe_nl.po \
 	pos/pwsafe_tr.po pos/pwsafe_hu.po pos/pwsafe_sl.po \
-	pos/pwsafe_pt_br.po
+	pos/pwsafe_pt_br.po pos/pwsafe_lv.po
 
 DLL_LIST = pwsafeAR.dll pwsafeCZ.dll pwsafeES.dll pwsafeDE.dll \
 	pwsafePL.dll pwsafeZH.dll pwsafeRU.dll pwsafeIT.dll pwsafeFR.dll \
 	pwsafeDA.dll pwsafeKR.dll pwsafeNL.dll pwsafeSV.dll pwsafeTR.dll \
-	pwsafeHU.dll pwsafeSL.dll pwsafePT.dll
+	pwsafeHU.dll pwsafeSL.dll pwsafePT.dll pwsafeLV.dll
 
-DEST_DIR := ../../../../out/build/x86-Release/I18N
-DEST_DIR_64 := ../../../../out/build/x64-Release/I18N
+DEST_DIR := ../../../../out/build/windows-x86-Release/I18N
+DEST_DIR_64 := ../../../../out/build/windows-x64-Release/I18N
 DLLS = $(DLL_LIST:%=$(DEST_DIR)/%)
 DLLS_64 = $(DLL_LIST:%=$(DEST_DIR_64)/%)
 
 TOOLS_SRC_DIR := ../../../Tools/Windows/I18N
-TOOLS_BIN_DIR := ../../../../out/build/x64-Release/src/Tools/Windows/I18N
+TOOLS_BIN_DIR := ../../../../out/build/windows-x64-Release/src/Tools/Windows/I18N
 
 CHECK_PO := ../../../../Misc/check_po.py
 
@@ -44,20 +44,22 @@ help:
 	@echo "update-pos dlls tools clean check help"
 
 # No need to change anything below this line
-RESTEXT = $(TOOLS_BIN_DIR)/ResText/Release/ResText.exe
-RESPWSL = $(TOOLS_BIN_DIR)/ResPWSL/Release/ResPWSL.exe
+RESTEXT = $(TOOLS_BIN_DIR)/ResText/ResText.exe
+RESPWSL = $(TOOLS_BIN_DIR)/ResPWSL/ResPWSL.exe
 CHMOD = /usr/bin/chmod
 RM = /usr/bin/rm
 MV = /usr/bin/mv
 
-BASE_DLL = ../../../../out/build/x64-Release/Release/pwsafe_base.dll
+BASE_DLL = ../../../../out/build/windows-x86-release/src/ui/Windows/language/pwsafe_base.dll
+BASE_DLL_64 = ../../../../out/build/windows-x64-release/src/ui/Windows/language/pwsafe_base.dll
 
 .PHONY: update-pos dlls dlls_32 dlls_64 tools clean help check dest_dir
 
 update-pos: tools $(POS)
 
 # All of the .po files depend on the pwsafe_base.dll from the languageDLL project
-$(POS): $(BASE_DLL)
+# Making it dependent on both x86 and x64 versions, just in case only one's updated when this is run.
+$(POS): $(BASE_DLL) $(BASE_DLL_64)
 
 # How to make a .po file from pwsafe_base.dll
 %.po: $(BASE_DLL)

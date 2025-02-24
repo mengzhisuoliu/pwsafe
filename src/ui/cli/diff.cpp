@@ -1,6 +1,6 @@
 /*
  * Created by Saurav Ghosh
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -32,6 +32,7 @@ const CItem::FieldType diff_fields[] = {
     CItem::TITLE,
     CItem::USER,
     CItem::PASSWORD,
+    CItem::TWOFACTORKEY,
     CItem::EMAIL,
     CItem::NOTES,
     CItem::URL,
@@ -49,7 +50,11 @@ const CItem::FieldType diff_fields[] = {
     CItem::DCA,
     CItem::SHIFTDCA,
     CItem::KBSHORTCUT,
-    CItem::PROTECTED
+    CItem::PROTECTED,
+    CItem::TOTPCONFIG,
+    CItem::TOTPLENGTH,
+    CItem::TOTPTIMESTEP,
+    CItem::TOTPSTARTTIME
 };
 
 //////////////////////////////////////////////////////////
@@ -120,10 +125,8 @@ inline wostream& print_field_value(wostream &os, wchar_t tag,
       const StringX pwh_str = item.GetPWHistory();
       if (!pwh_str.empty()) {
         StringXStream value_stream;
-        size_t ignored;
-        PWHistList pwhl;
-        const bool save_pwhistory = CreatePWHistoryList(pwh_str, ignored, ignored, pwhl, PWSUtil::TMC_LOCALE);
-        value_stream << L"Save: " << (save_pwhistory? L"Yes" : L"No");
+        PWHistList pwhl(pwh_str, PWSUtil::TMC_LOCALE);
+        value_stream << L"Save: " << (pwhl.isSaving() ? L"Yes" : L"No");
         if ( !pwhl.empty() ) value_stream << endl;
         for( const auto &pwh: pwhl) value_stream << pwh.changedate << L": " << pwh.password << endl;
         fieldValue = value_stream.str();
@@ -388,7 +391,7 @@ void sbs_print(const PWScore &core,
     if ( print_fields ) {
       for( auto ft: diff_fields ) {
         // print the fields if they were actually found to be different
-        if (df.test(ft) && !have_empty_policies(item, otherItem)) {
+        if (df.test(ft) && (ft != CItem::POLICY || !have_empty_policies(item, otherItem))) {
           StringXStream wssl, wssr;
           wssl << left_line(ft) << flush;
           wssr << right_line(ft) << flush;

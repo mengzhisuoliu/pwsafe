@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -13,24 +13,24 @@
 
 TEST(OSTest, testMedia)
 {
-  EXPECT_EQ(_S("unknown"), pws_os::GetMediaType(_S("nosuchfile")));
-  EXPECT_EQ(_S("text/plain"), pws_os::GetMediaType(_S("data/text1.txt")));
-  EXPECT_EQ(_S("image/jpeg"), pws_os::GetMediaType(_S("data/image1.jpg")));
+  EXPECT_EQ(_T("unknown"), pws_os::GetMediaType(_T("nosuchfile")));
+  EXPECT_EQ(_T("text/plain"), pws_os::GetMediaType(_T("data/text1.txt")));
+  EXPECT_EQ(_T("image/jpeg"), pws_os::GetMediaType(_T("data/image1.jpg")));
 }
 
 TEST(OSTest, testPath)
 {
   #ifdef WIN32
-  const stringT path_sep(_S("\\"));
-  const stringT in_drive(_S("C:"));
+  const stringT path_sep(_T("\\"));
+  const stringT in_drive(_T("C:"));
   #else
-  const stringT path_sep(_S("/"));
-  const stringT in_drive(_S(""));
+  const stringT path_sep(_T("/"));
+  const stringT in_drive(_T(""));
   #endif
 
-  const stringT in_dir = path_sep + _S("dir1") + path_sep + _S("b") + path_sep;
-  const stringT in_file = _S("filename");
-  const stringT in_ext = _S(".ext");
+  const stringT in_dir = path_sep + _T("dir1") + path_sep + _T("b") + path_sep;
+  const stringT in_file = _T("filename");
+  const stringT in_ext = _T(".ext");
   const stringT in_path =  in_drive + in_dir + in_file + in_ext;
 
   stringT out_drive, out_dir, out_file, out_ext, out_path;

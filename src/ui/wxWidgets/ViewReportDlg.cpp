@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -54,7 +54,7 @@ ViewReportDlg::ViewReportDlg(wxWindow *parent, CReport* pRpt, bool fromFile) :
   bs->AddSpacer(ColSeparation);
   bs->Add(new wxButton(this, wxID_COPY, _("&Copy to Clipboard")));
   bs->AddSpacer(ColSeparation);
-  wxButton* finishButton = new wxButton(this, wxID_CLOSE, _("&Finish"));
+  wxButton* finishButton = new wxButton(this, wxID_CLOSE);
   finishButton->SetDefault();
   bs->Add(finishButton);
 

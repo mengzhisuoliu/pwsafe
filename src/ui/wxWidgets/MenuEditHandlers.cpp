@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -135,28 +135,23 @@ void PasswordSafeFrame::OnDeleteClick(wxCommandEvent& WXUNUSED(evt))
   bool dontaskquestion = PWSprefs::GetInstance()->
     GetPref(PWSprefs::DeleteQuestion);
 
-  int num_children = 0;
+  bool isGroup = false;
   // If tree view, check if group selected
   if (m_tree->IsShown()) {
     wxTreeItemId sel = m_tree->GetSelection();
-    if(m_tree->ItemIsGroup(sel)) {
-      num_children = static_cast<int>(m_tree->GetChildrenCount(sel));
-    }
-    else {
-      num_children = 0;
-    }
-    if (num_children > 0) // ALWAYS confirm group delete
+    isGroup = m_tree->ItemIsGroup(sel);
+    if (isGroup) // ALWAYS confirm group delete
       dontaskquestion = false;
   }
-  CallAfter(&PasswordSafeFrame::DoDeleteItems, !dontaskquestion, num_children);
+  CallAfter(&PasswordSafeFrame::DoDeleteItems, !dontaskquestion, isGroup);
 }
 
-void PasswordSafeFrame::DoDeleteItems(bool askConfirmation, int num_children)
-{  
+void PasswordSafeFrame::DoDeleteItems(bool askConfirmation, bool isGroup)
+{
   bool dodelete = true;
   //Confirm whether to delete the item
   if (askConfirmation) {
-    DestroyWrapper<DeleteConfirmationDlg> deleteDlgWrapper(this, num_children);
+    DestroyWrapper<DeleteConfirmationDlg> deleteDlgWrapper(this, isGroup);
     DeleteConfirmationDlg* deleteDlg = deleteDlgWrapper.Get();
     deleteDlg->SetConfirmdelete(PWSprefs::GetInstance()->GetPref(PWSprefs::DeleteQuestion));
     int rc = deleteDlg->ShowModal();
@@ -169,15 +164,47 @@ void PasswordSafeFrame::DoDeleteItems(bool askConfirmation, int num_children)
   }
 
   if (dodelete) {
-    Command *doit = nullptr;
+    auto *commands = MultiCommands::Create(&m_core);
+    Command *deleteCommand = nullptr;
     CItemData *item = GetSelectedEntry();
+    wxTreeItemId tid;
     if (item != nullptr) {
-      doit = DeleteItem(item);
+      tid = m_tree->Find(*item);
+      deleteCommand = DeleteItem(item);
     } else if (m_tree->GetSelection() != m_tree->GetRootItem()) {
-      doit = Delete(m_tree->GetSelection());
+      tid = m_tree->GetSelection();
+      deleteCommand = Delete(tid);
     }
-    if (doit != nullptr)
-      m_core.Execute(doit);
+    if (deleteCommand != nullptr) {
+      commands->Add(deleteCommand);
+    }
+    // If the item was the only child of its parent we make the parent empty.
+    // See src/ui/Windows/MainEdit::OnDelete
+    if (tid.IsOk()) {
+      auto root = m_tree->GetRootItem();
+      auto parent = m_tree->GetItemParent(tid);
+      auto children = m_tree->GetChildrenCount(parent, false);
+      if (parent != nullptr && root != nullptr && parent != root && children == 1) {
+        StringX sxPath = tostringx(m_tree->GetItemGroup(parent));
+        commands->Add(
+          DBEmptyGroupsCommand::Create(&m_core, sxPath, DBEmptyGroupsCommand::EG_ADD)
+        );
+      }
+    }
+    // If MultiCommands is empty, delete
+    if (commands->GetSize() == 0) {
+      delete commands;
+    }
+    else {
+      commands->Add(
+        UpdateGUICommand::Create(
+          &m_core,
+          UpdateGUICommand::ExecuteFn::WN_EXECUTE,
+          UpdateGUICommand::GUI_Action::GUI_REFRESH_TREE
+        )
+      );
+      m_core.Execute(commands);
+    }
   } // dodelete
 }
 
@@ -446,6 +473,40 @@ void PasswordSafeFrame::DoCopyUsername(CItemData &item)
   Clipboard::GetInstance()->SetData(item.GetUser());
   UpdateLastClipboardAction(CItemData::FieldType::USER);
   UpdateAccessTime(item);
+}
+
+/*!
+ * wxEVT_COMMAND_MENU_SELECTED event handler for ID_COPYAUTHCODE
+ */
+
+void PasswordSafeFrame::OnCopyAuthCodeClick(wxCommandEvent& evt)
+{
+  CItemData rueItem;
+  CItemData* item = GetSelectedEntry(evt, rueItem);
+  if (item != nullptr) {
+    m_TotpLastSelectedItem = item;
+    DoCopyAuthCode(item);
+    StartTotpCopyAuthCode();
+  }
+  else {
+    StopTotpCopyAuthCode();
+  }
+}
+
+void PasswordSafeFrame::DoCopyAuthCode(const CItemData *item)
+{
+  auto totp = GetTotpData(item);
+  Clipboard::GetInstance()->SetData(totp.first);
+  UpdateLastClipboardAction(CItemData::FieldType::TOTPCONFIG);
+}
+
+/*!
+ * wxEVT_COMMAND_MENU_SELECTED event handler for ID_SHOWAUTHCODE
+ */
+
+void PasswordSafeFrame::OnShowAuthCodeClick(wxCommandEvent& WXUNUSED(evt))
+{
+  GetTotpBarPane().IsShown() ? HideTotpBar() : ShowTotpBar();
 }
 
 /*!
@@ -850,7 +911,6 @@ void PasswordSafeFrame::DoAutotype(const StringX& sx_autotype,
           }
           break;
         default:
-          sxtmp += L'\\';
           sxtmp += curChar;
           break;
       }
@@ -983,17 +1043,12 @@ void PasswordSafeFrame::DoRun(CItemData& item)
   const CItemData *pci  = &item;
   const CItemData *pbci = pci->IsDependent() ? m_core.GetBaseEntry(pci) : nullptr;
 
-  StringX group, title, user, password, lastpassword, notes, url, email, autotype, runcommand;
+  CItemData effci;
+  StringX lastpassword, totpauthcode;
 
-  if (!PWSAuxParse::GetEffectiveValues(pci, pbci, 
-                                       group, title, 
-                                       user, password, lastpassword, 
-                                       notes, url, email, 
-                                       autotype, runcommand)) {
-    return;
-  }
+  PWSAuxParse::GetEffectiveValues(pci, pbci, effci, lastpassword, totpauthcode);
 
-  if (runcommand.empty()) {
+  if (effci.GetRunCommand().empty()) {
     return;
   }
 
@@ -1002,7 +1057,7 @@ void PasswordSafeFrame::DoRun(CItemData& item)
   bool isSpecialUrl, doAutoType;
   StringX expandedAutoType;
 
-  StringX expandedES(PWSAuxParse::GetExpandedString(runcommand,
+  StringX expandedES(PWSAuxParse::GetExpandedString(effci.GetRunCommand(),
                                                     m_core.GetCurFile(), pci, pbci,
                                                     doAutoType, expandedAutoType,
                                                     errorMessage, columnPosition, isSpecialUrl));
@@ -1026,9 +1081,10 @@ void PasswordSafeFrame::DoRun(CItemData& item)
   }
 
   expandedAutoType = PWSAuxParse::GetAutoTypeString(expandedAutoType,
-                                                    group, title, user,
-                                                    password, lastpassword,
-                                                    notes, url, email,
+                                                    effci.GetGroup(), effci.GetTitle(), effci.GetUser(),
+                                                    effci.GetPassword(), lastpassword,
+                                                    effci.GetNotes(), effci.GetURL(), effci.GetEmail(),
+                                                    totpauthcode,
                                                     vactionverboffsets);
 
   // Now honour presence of [alt], {alt} or [ssh] in the url if present
@@ -1052,7 +1108,7 @@ void PasswordSafeFrame::DoRun(CItemData& item)
 
   // FR856 - Copy Password to Clipboard on Run-Command When copy-on-browse set.
   if (PWSprefs::GetInstance()->GetPref(PWSprefs::CopyPasswordWhenBrowseToURL)) {
-    Clipboard::GetInstance()->SetData(password);
+    Clipboard::GetInstance()->SetData(effci.GetPassword());
     UpdateLastClipboardAction(CItemData::FieldType::PASSWORD);
   }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -50,7 +50,6 @@ private:
 #endif
   const wxString defDelim;
   SafeCombinationCtrl* m_combinationEntry;
-  wxTimer* m_pollingTimer; // for Yubi, but can't go into mixin :-(
 };
 
 template <class DlgType>

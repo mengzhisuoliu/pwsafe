@@ -4,6 +4,7 @@ set (CORE_SRCS
  
   CheckVersion.cpp
   Command.cpp
+  CoreAlias.cpp
   CoreImpExp.cpp
   CoreOtherDB.cpp
   ExpiredList.cpp
@@ -33,6 +34,7 @@ set (CORE_SRCS
   RUEList.cpp
   StringX.cpp
   SysInfo.cpp
+  TotpCore.cpp
   UnknownField.cpp
   UTF8Conv.cpp
   Util.cpp
@@ -45,6 +47,7 @@ set (CORE_SRCS
   crypto/sha1.cpp
   crypto/sha256.cpp
   crypto/TwoFish.cpp
+  crypto/external/Chromium/base32.cpp
   XML/XMLFileHandlers.cpp
   XML/XMLFileValidation.cpp
   pugixml/pugixml.cpp

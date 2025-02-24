@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -55,6 +55,8 @@
 #define PWS_MSG_INSERTBUFFER            (WM_APP + 70)
 #define PWS_MSG_RESETTIMER              (WM_APP + 71)
 
+#define PWS_MSG_INVOKE_UI_THREAD        (WM_APP + 80)
+
 /*
 Timer related values (note - all documented her but some defined only where needed.
 */
@@ -87,6 +89,14 @@ Timer related values (note - all documented her but some defined only where need
 #define TIMER_EXPENT              0x0E
 // Timer event number used to to poll the YubiKey when used
 #define TIMER_YUBIKEYPOLL         0x0F
+
+// Timer causing force allow screen capture bitmap blink.
+#define TIMER_FORCE_ALLOW_CAPTURE_BITMAP_BLINK 0x20    
+
+// Timer used for two factor authentication code interval countdown.
+#define TIMER_TWO_FACTOR_AUTH_CODE_COUNTDOWN 0x21
+// Timer used to repeatedly update the clipboard with an entry's current auth code.
+#define TIMER_TWO_FACTOR_AUTH_CODE_UPDATE_CLIPBOARD 0x22
 
 /*
 HOVER_TIME_ND       The length of time the pointer must remain stationary

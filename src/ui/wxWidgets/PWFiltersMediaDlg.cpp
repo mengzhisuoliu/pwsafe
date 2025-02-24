@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -167,10 +167,9 @@ void pwFiltersMediaTypesDlg::InitDialog()
 
   m_MediaTypes->Append(_T("")); // Allow empty selection
   if (m_psMediaTypes != nullptr) {
-    size_t i = 0;
     for (auto iter = m_psMediaTypes->begin();
          iter != m_psMediaTypes->end();
-         i++, iter++) {
+         iter++) {
       wxString value = iter->c_str();
       m_MediaTypes->Append(value);
       // Set column size to fit

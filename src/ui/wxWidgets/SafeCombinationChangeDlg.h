@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -52,7 +52,7 @@ class wxTimer;
 #define ID_CONFIRM 10077
 #define ID_YUBISTATUS 10230
 #define ID_SHOWCOMBINATION 10505
-#define SYMBOL_SAFECOMBINATIONCHANGEDLG_TITLE _("Change Safe Combination")
+#define SYMBOL_SAFECOMBINATIONCHANGEDLG_TITLE _("Change Master Password")
 #define SYMBOL_SAFECOMBINATIONCHANGEDLG_IDNAME ID_SAFECOMBINATIONCHANGEDLG
 #define SYMBOL_SAFECOMBINATIONCHANGEDLG_SIZE wxSize(400, 300)
 #define SYMBOL_SAFECOMBINATIONCHANGEDLG_POSITION wxDefaultPosition
@@ -142,12 +142,9 @@ private:
   StringX m_oldresponse;
   PWScore &m_core;
   
-  bool m_isPasswordHidden;
-
 #ifndef NO_YUBI
   // try having 2 mixin objects to handle things:
   YubiMixin m_yubiMixin1, m_yubiMixin2;
-  wxTimer* m_pollingTimer = nullptr; // for Yubi
   bool m_IsYubiProtected = false; // set if 2nd Yubi button clicked. Clear YubiSK on OK if false.
 #endif
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -47,7 +47,7 @@ IMPLEMENT_CLASS( PropertiesDlg, wxDialog )
 BEGIN_EVENT_TABLE( PropertiesDlg, wxDialog )
 
 ////@begin PropertiesDlg event table entries
-  EVT_BUTTON( wxID_OK,                  PropertiesDlg::OnOkClick )
+  EVT_BUTTON( wxID_CLOSE,                  PropertiesDlg::OnCloseClick )
   EVT_BUTTON( wxID_CHANGE_NAME,         PropertiesDlg::OnEditName )
   EVT_BUTTON( wxID_CHANGE_DESCRIPTION,  PropertiesDlg::OnEditDescription )
 
@@ -353,7 +353,7 @@ void PropertiesDlg::CreateControls()
   auto buttonsSizer = new wxStdDialogButtonSizer;
 
   mainSizer->Add(buttonsSizer, 0, wxALIGN_CENTER_HORIZONTAL|wxALL, 5);
-  auto okButton = new wxButton( this, wxID_OK, _("&OK"), wxDefaultPosition, wxDefaultSize, 0 );
+  auto okButton = new wxButton( this, wxID_CLOSE);
   okButton->SetDefault();
   buttonsSizer->AddButton(okButton);
   buttonsSizer->Realize();
@@ -418,12 +418,9 @@ wxIcon PropertiesDlg::GetIconResource( const wxString& WXUNUSED(name) )
  * wxEVT_COMMAND_BUTTON_CLICKED event handler for wxID_OK
  */
 
-void PropertiesDlg::OnOkClick( wxCommandEvent& WXUNUSED(evt) )
+void PropertiesDlg::OnCloseClick( wxCommandEvent& WXUNUSED(evt) )
 {
-////@begin wxEVT_COMMAND_BUTTON_CLICKED event handler for wxID_OK in PropertiesDlg.
-  // Before editing this code, remove the block markers.
-  EndModal(wxID_OK);
-////@end wxEVT_COMMAND_BUTTON_CLICKED event handler for wxID_OK in PropertiesDlg.
+  EndModal(wxID_CLOSE);
 }
 
 /*!
@@ -435,7 +432,7 @@ void PropertiesDlg::OnEditName( wxCommandEvent& WXUNUSED(evt) )
 }
 
 void PropertiesDlg::DoEditName() {
-  auto* inputDialog = new wxTextEntryDialog(this, _("Name:"), _("Please enter the new database name"), m_NewDbName.c_str(), wxOK|wxCANCEL);
+  auto* inputDialog = new wxTextEntryDialog(this, _("Name:"), _("Name"), m_NewDbName.c_str(), wxOK|wxCANCEL);
 
   inputDialog->SetSize(550, -1);
 
@@ -467,7 +464,7 @@ void PropertiesDlg::OnEditDescription( wxCommandEvent& WXUNUSED(evt) )
 }
 
 void PropertiesDlg::DoEditDescription() {
-  auto* inputDialog = new wxTextEntryDialog(this, _("Description:"), _("Please enter the new database description"), m_NewDbDescription.c_str(), wxOK|wxCANCEL|wxTE_MULTILINE);
+  auto* inputDialog = new wxTextEntryDialog(this, _("Description:"), _("Description"), m_NewDbDescription.c_str(), wxOK|wxCANCEL|wxTE_MULTILINE);
 
   inputDialog->SetSize(550, 300);
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -1145,6 +1145,7 @@ CString CManageFiltersDlg::GetFieldTypeName(FieldType ft)
   case FT_GROUPTITLE:   return CItemData::FieldName(CItemData::GROUPTITLE).c_str();
   case FT_USER:         return CItemData::FieldName(CItemData::USER).c_str();
   case FT_PASSWORD:     return CItemData::FieldName(CItemData::PASSWORD).c_str();
+  case FT_TWOFACTORKEY: return CItemData::FieldName(CItemData::TWOFACTORKEY).c_str();
   case FT_NOTES:        return CItemData::FieldName(CItemData::NOTES).c_str();
   case FT_AUTOTYPE:     return CItemData::FieldName(CItemData::AUTOTYPE).c_str();
   case FT_URL:          return CItemData::FieldName(CItemData::URL).c_str();

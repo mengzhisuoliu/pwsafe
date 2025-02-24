@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -53,7 +53,12 @@ BEGIN_EVENT_TABLE( AddEditPropSheetDlg, wxPropertySheetDialog )
   EVT_BUTTON(       wxID_OK,                 AddEditPropSheetDlg::OnOk                      )
   EVT_BUTTON(       wxID_CANCEL,             AddEditPropSheetDlg::OnCancel                  )
 ////@begin AddEditPropSheetDlg event table entries
+  EVT_TEXT(         ID_TEXTCTRL_PASSWORD,    AddEditPropSheetDlg::OnPasswordChanged         )
+  EVT_TEXT(         ID_TEXTCTRL_PASSWORD2,   AddEditPropSheetDlg::OnPasswordChanged         )
   EVT_BUTTON(       ID_BUTTON_SHOWHIDE,      AddEditPropSheetDlg::OnShowHideClick           )
+  EVT_BUTTON(       ID_BUTTON_SHOWHIDE_2FK,  AddEditPropSheetDlg::OnShowHide2FKClick        )
+  EVT_BUTTON(       ID_BUTTON_SHOWHIDE_TOTP, AddEditPropSheetDlg::OnShowHideTotpClick       )
+  EVT_BUTTON(       ID_BUTTON_COPY_TOTP,     AddEditPropSheetDlg::OnCopyAuthCodeClick       )
   EVT_BUTTON(       ID_BUTTON_GENERATE,      AddEditPropSheetDlg::OnGenerateButtonClick     )
   EVT_BUTTON(       ID_BUTTON_ALIAS,         AddEditPropSheetDlg::OnAliasButtonClick        )
   EVT_BUTTON(       ID_GO_BTN,               AddEditPropSheetDlg::OnGoButtonClick           )
@@ -82,7 +87,10 @@ BEGIN_EVENT_TABLE( AddEditPropSheetDlg, wxPropertySheetDialog )
 
   EVT_BUTTON(       ID_BUTTON_CLEAR_HIST,    AddEditPropSheetDlg::OnClearPasswordHistory    )
 
+  EVT_TIMER(        ID_TIMER_TOTP_COUNTDOWN, AddEditPropSheetDlg::OnTotpCountdownTimer      )
+
   EVT_UPDATE_UI(    ID_COMBOBOX_GROUP,       AddEditPropSheetDlg::OnUpdateUI                )
+  EVT_UPDATE_UI(    ID_BUTTON_SHOWHIDE,      AddEditPropSheetDlg::OnUpdateUI                )
   EVT_UPDATE_UI(    ID_BUTTON_GENERATE,      AddEditPropSheetDlg::OnUpdateUI                )
   EVT_UPDATE_UI(    ID_BUTTON_ALIAS,         AddEditPropSheetDlg::OnUpdateUI                )
   EVT_UPDATE_UI(    ID_TEXTCTRL_TITLE,       AddEditPropSheetDlg::OnUpdateUI                )
@@ -132,7 +140,8 @@ AddEditPropSheetDlg::AddEditPropSheetDlg(wxWindow *parent, PWScore &core,
   else {
     m_Item.CreateUUID(); // We're adding a new entry
   }
-  
+
+  m_ItemTotp = m_Item; // The copy is used to show the TOTP on the 'Basic' tab
   m_IsNotesHidden = !PWSprefs::GetInstance()->GetPref(PWSprefs::ShowNotesDefault);
 
   wxString dlgTitle;
@@ -173,6 +182,29 @@ AddEditPropSheetDlg::AddEditPropSheetDlg(wxWindow *parent, PWScore &core,
   if (m_Core.GetReadFileVersion() == PWSfile::V40) {
     InitAttachmentTab();
   }
+
+  // If a new item is created and therefore no TOTP configuration exists yet,
+  // it is not necessary to start the TOTP update on the user interface.
+  if (m_Type != SheetType::ADD) {
+    StartTotp();
+  }
+
+  // If the user has added a two factor key in the 'Additional' tab
+  // the TOTP update on the user interface is started by the tab change.
+  auto noteBook = (AddEditPropSheetDlg*)wxPropertySheetDialog::GetBookCtrl(); 
+  Bind(wxEVT_NOTEBOOK_PAGE_CHANGING, &AddEditPropSheetDlg::OnTabChanging, this, noteBook->GetId());
+
+  // Set the initial focus to the Title control (Otherwise it defaults to the Group control)
+  m_BasicTitleTextCtrl->SetFocus();
+
+  bitmapCheckmarkPlaceholder = wxUtilities::GetBitmapResource(wxT("graphics/checkmark_placeholder.xpm"));
+  bitmapCheckmarkGreen = wxUtilities::GetBitmapResource(wxT("graphics/checkmark_green.xpm"));
+  bitmapCheckmarkGray = wxUtilities::GetBitmapResource(wxT("graphics/checkmark_gray.xpm"));
+}
+
+AddEditPropSheetDlg::~AddEditPropSheetDlg()
+{
+  StopTotp();
 }
 
 AddEditPropSheetDlg* AddEditPropSheetDlg::Create(wxWindow *parent, PWScore &core,
@@ -254,12 +286,11 @@ void AddEditPropSheetDlg::CreateControls()
   // Non-DialogBlock initializations:
   m_AdditionalPasswordHistoryGrid->SetColLabelValue(0, _("Set Date/Time"));
   m_AdditionalPasswordHistoryGrid->SetColLabelValue(1, _("Password"));
+  m_AdditionalPasswordHistoryGrid->EnableEditing(false);
 
   // Setup symbols
   m_Symbols = CPasswordCharPool::GetDefaultSymbols().c_str();
   m_PasswordPolicyOwnSymbolsTextCtrl->SetValue(m_Symbols);
-
-  m_DatesTimesExpiryTimeCtrl->SetRange(1, 3650);
 }
 
 wxPanel* AddEditPropSheetDlg::CreateBasicPanel()
@@ -268,84 +299,124 @@ wxPanel* AddEditPropSheetDlg::CreateBasicPanel()
   auto *itemBoxSizer3 = new wxBoxSizer(wxVERTICAL);
   panel->SetSizer(itemBoxSizer3);
 
-  auto *itemStaticText4 = new wxStaticText( panel, wxID_STATIC, _(
-    "To add a new entry, simply fill in the fields below. At least a title and\n"
-    "a password are required. If you have set a default username, it will\n"
-    "appear in the username field."), wxDefaultPosition, wxDefaultSize, 0 );
-  itemBoxSizer3->Add(itemStaticText4, 0, wxALIGN_LEFT/*|wxALIGN_CENTER_VERTICAL*/|wxALL, 5);
+  auto *itemStaticTextHint = new wxStaticText(panel, wxID_STATIC, _("All fields marked with an asterisk (*) are required."), wxDefaultPosition, wxDefaultSize, 0);
+  itemStaticTextHint->SetFont((itemStaticTextHint->GetFont()).Italic());
+  itemBoxSizer3->Add(itemStaticTextHint, 0, wxALIGN_LEFT|wxALL, 10);
 
-  m_BasicSizer = new wxGridBagSizer();
+  m_BasicSizer = new wxGridBagSizer(/*vgap:*/ 5, /*hgap:*/ 5);
+  itemBoxSizer3->Add(m_BasicSizer, 1, wxEXPAND|wxALIGN_LEFT|wxALIGN_TOP|wxLEFT|wxBOTTOM|wxRIGHT, 10);
 
-  itemBoxSizer3->Add(m_BasicSizer, 1, wxEXPAND|wxALIGN_LEFT|wxALIGN_TOP|wxALL, 0);
-  auto *itemStaticText6 = new wxStaticText( panel, wxID_STATIC, _("Group:"), wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(itemStaticText6, wxGBPosition(/*row:*/ 0, /*column:*/ 0), wxDefaultSpan,  wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  auto *itemStaticText6 = new wxStaticText( panel, wxID_STATIC, _("Group"), wxDefaultPosition, wxDefaultSize, 0 );
+  m_BasicSizer->Add(itemStaticText6, wxGBPosition(/*row:*/ 0, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 5),  wxALIGN_LEFT|wxALIGN_BOTTOM|wxBOTTOM, 0);
 
   m_BasicGroupNamesCtrl = new wxComboBox( panel, ID_COMBOBOX_GROUP, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0, nullptr, wxCB_DROPDOWN);
-  m_BasicSizer->Add(m_BasicGroupNamesCtrl, wxGBPosition(/*row:*/ 0, /*column:*/ 1), wxDefaultSpan, wxEXPAND|wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  m_BasicSizer->Add(m_BasicGroupNamesCtrl, wxGBPosition(/*row:*/ 1, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 5), wxEXPAND|wxALIGN_CENTER_VERTICAL|wxBOTTOM, 7);
 
-  auto *itemStaticText9 = new wxStaticText( panel, wxID_STATIC, _("Title:"), wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(itemStaticText9, wxGBPosition(/*row:*/ 1, /*column:*/ 0), wxDefaultSpan, wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  auto *itemStaticText9 = new wxStaticText( panel, wxID_STATIC, _("Title"), wxDefaultPosition, wxDefaultSize, 0 );
+  auto *itemStaticText10 = new wxStaticText( panel, wxID_STATIC, wxT("*"), wxDefaultPosition, wxDefaultSize, 0 );
+  itemStaticText10->SetForegroundColour(*wxRED);
+  auto *itemBoxSizer4 = new wxBoxSizer(wxHORIZONTAL);
+  itemBoxSizer4->Add(itemStaticText9, 0, wxALIGN_CENTER_VERTICAL, 0);
+  itemBoxSizer4->Add(itemStaticText10, 0, wxALIGN_CENTER_VERTICAL, 0);
+  m_BasicSizer->Add(itemBoxSizer4, wxGBPosition(/*row:*/ 2, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 5), wxALIGN_LEFT|wxALIGN_BOTTOM|wxBOTTOM, 0);
 
   m_BasicTitleTextCtrl = new wxTextCtrl( panel, ID_TEXTCTRL_TITLE, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(m_BasicTitleTextCtrl, wxGBPosition(/*row:*/ 1, /*column:*/ 1), wxDefaultSpan, wxEXPAND|wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  m_BasicSizer->Add(m_BasicTitleTextCtrl, wxGBPosition(/*row:*/ 3, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 5), wxEXPAND|wxALIGN_CENTER_VERTICAL|wxBOTTOM, 7);
 
-  auto *itemStaticText12 = new wxStaticText( panel, wxID_STATIC, _("Username:"), wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(itemStaticText12, wxGBPosition(/*row:*/ 2, /*column:*/ 0), wxDefaultSpan, wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  auto *itemStaticText12 = new wxStaticText( panel, wxID_STATIC, _("Username"), wxDefaultPosition, wxDefaultSize, 0 );
+  m_BasicSizer->Add(itemStaticText12, wxGBPosition(/*row:*/ 4, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 5), wxEXPAND|wxALIGN_LEFT|wxALIGN_BOTTOM|wxBOTTOM, 0);
 
   m_BasicUsernameTextCtrl = new wxTextCtrl( panel, ID_TEXTCTRL_USERNAME, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(m_BasicUsernameTextCtrl , wxGBPosition(/*row:*/ 2, /*column:*/ 1), wxDefaultSpan, wxEXPAND|wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  m_BasicSizer->Add(m_BasicUsernameTextCtrl , wxGBPosition(/*row:*/ 5, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 5), wxEXPAND|wxALIGN_CENTER_VERTICAL|wxBOTTOM, 7);
 
-  m_BasicPasswordTextLabel = new wxStaticText( panel, wxID_STATIC, _("Password:"), wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(m_BasicPasswordTextLabel, wxGBPosition(/*row:*/ 3, /*column:*/ 0), wxDefaultSpan, wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  m_BasicPasswordTextLabel = new wxStaticText( panel, wxID_STATIC, _("Password"), wxDefaultPosition, wxDefaultSize, 0 );
+  auto *itemStaticText11 = new wxStaticText( panel, wxID_STATIC, wxT("*"), wxDefaultPosition, wxDefaultSize, 0 );
+  itemStaticText11->SetForegroundColour(*wxRED);
+  auto *itemBoxSizer5 = new wxBoxSizer(wxHORIZONTAL);
+  itemBoxSizer5->Add(m_BasicPasswordTextLabel, 0, wxALIGN_CENTER_VERTICAL, 0);
+  itemBoxSizer5->Add(itemStaticText11, 0, wxALIGN_CENTER_VERTICAL, 0);
+  m_BasicSizer->Add(itemBoxSizer5, wxGBPosition(/*row:*/ 6, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 3), wxALIGN_LEFT|wxALIGN_BOTTOM|wxBOTTOM, 0);
 
   m_BasicPasswordTextCtrl = new wxTextCtrl( panel, ID_TEXTCTRL_PASSWORD, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(m_BasicPasswordTextCtrl, wxGBPosition(/*row:*/ 3, /*column:*/ 1), wxDefaultSpan, wxEXPAND|wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  m_BasicSizer->Add(m_BasicPasswordTextCtrl, wxGBPosition(/*row:*/ 7, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 3), wxEXPAND|wxALIGN_CENTER_VERTICAL|wxBOTTOM, 7);
 
-  m_BasicShowHideCtrl = new wxButton( panel, ID_BUTTON_SHOWHIDE, _("&Hide"), wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(m_BasicShowHideCtrl, wxGBPosition(/*row:*/ 3, /*column:*/ 2), wxDefaultSpan, wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  m_BasicPasswordBitmap = new wxStaticBitmap(panel, wxID_ANY, bitmapCheckmarkPlaceholder, wxDefaultPosition, wxDefaultSize, 0);
+  m_BasicSizer->Add(m_BasicPasswordBitmap, wxGBPosition(/*row:*/ 7, /*column:*/ 3), wxDefaultSpan, wxALIGN_CENTER_VERTICAL|wxALIGN_LEFT|wxBOTTOM, 7);
+
+  m_BasicShowHideCtrl = new wxBitmapButton(panel, ID_BUTTON_SHOWHIDE, wxUtilities::GetBitmapResource(wxT("graphics/eye.xpm")), wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+  m_BasicSizer->Add(m_BasicShowHideCtrl, wxGBPosition(/*row:*/ 7, /*column:*/ 4), wxDefaultSpan, wxALIGN_CENTER_VERTICAL|wxBOTTOM, 7);
 
   auto *itemButton21 = new wxButton( panel, ID_BUTTON_GENERATE, _("&Generate"), wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(itemButton21, wxGBPosition(/*row:*/ 3, /*column:*/ 3), wxDefaultSpan, wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  m_BasicSizer->Add(itemButton21, wxGBPosition(/*row:*/ 7, /*column:*/ 5), wxDefaultSpan, wxALIGN_CENTER_VERTICAL|wxLEFT|wxBOTTOM, 7);
 
-  m_BasicPasswordConfirmationTextLabel = new wxStaticText( panel, wxID_STATIC, _("Confirm:"), wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(m_BasicPasswordConfirmationTextLabel, wxGBPosition(/*row:*/ 4, /*column:*/ 0), wxDefaultSpan, wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  m_BasicPasswordConfirmationTextLabel = new wxStaticText( panel, wxID_STATIC, _("Confirm"), wxDefaultPosition, wxDefaultSize, 0 );
+  auto *itemStaticText13 = new wxStaticText( panel, ID_STATICTEXT_PASSWORD2, wxT("*"), wxDefaultPosition, wxDefaultSize, 0 );
+  itemStaticText13->SetForegroundColour(*wxRED);
+  auto *itemBoxSizer6 = new wxBoxSizer(wxHORIZONTAL);
+  itemBoxSizer6->Add(m_BasicPasswordConfirmationTextLabel, 0, wxALIGN_CENTER_VERTICAL, 0);
+  itemBoxSizer6->Add(itemStaticText13, 0, wxALIGN_CENTER_VERTICAL, 0);
+  m_BasicSizer->Add(itemBoxSizer6, wxGBPosition(/*row:*/ 8, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 3), wxALIGN_LEFT|wxALIGN_BOTTOM|wxBOTTOM, 0);
 
   m_BasicPasswordConfirmationTextCtrl = new wxTextCtrl( panel, ID_TEXTCTRL_PASSWORD2, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_PASSWORD );
-  m_BasicSizer->Add(m_BasicPasswordConfirmationTextCtrl, wxGBPosition(/*row:*/ 4, /*column:*/ 1), wxDefaultSpan, wxEXPAND|wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  m_BasicSizer->Add(m_BasicPasswordConfirmationTextCtrl, wxGBPosition(/*row:*/ 9, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 3), wxEXPAND|wxALIGN_CENTER_VERTICAL|wxBOTTOM, 7);
+
+  m_BasicPasswordConfirmationBitmap = new wxStaticBitmap(panel, wxID_ANY, bitmapCheckmarkPlaceholder, wxDefaultPosition, wxDefaultSize, 0);
+  m_BasicSizer->Add(m_BasicPasswordConfirmationBitmap, wxGBPosition(/*row:*/ 9, /*column:*/ 3), wxDefaultSpan, wxALIGN_CENTER|wxALIGN_LEFT|wxBOTTOM, 7);
   
   auto *itemButton22 = new wxButton( panel, ID_BUTTON_ALIAS, _("&Alias To..."), wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(itemButton22, wxGBPosition(/*row:*/ 4, /*column:*/ 2), wxDefaultSpan, wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  m_BasicSizer->Add(itemButton22, wxGBPosition(/*row:*/ 9, /*column:*/ 5), wxDefaultSpan, wxALIGN_CENTER_VERTICAL|wxLEFT|wxBOTTOM, 7);
   if(! PWSprefs::GetInstance()->GetPref(PWSprefs::ShowAliasSelection)) {
     // Per default do not show this button
     itemButton22->Hide();
   }
-  
-  auto *itemStaticText25 = new wxStaticText( panel, wxID_STATIC, _("URL:"), wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(itemStaticText25, wxGBPosition(/*row:*/ 5, /*column:*/ 0), wxDefaultSpan, wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL, 5);
+
+  m_BasicTotpTextLabel = new wxStaticText( panel, wxID_STATIC, _("Authentication Code"), wxDefaultPosition, wxDefaultSize, 0 );
+  m_BasicSizer->Add(m_BasicTotpTextLabel, wxGBPosition(/*row:*/ 10, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 3), wxEXPAND|wxALIGN_LEFT|wxALIGN_BOTTOM|wxBOTTOM, 0);
+
+  m_BasicTotpTextCtrl = new wxTextCtrl( panel, ID_TEXTCTRL_TOTP, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_PASSWORD|wxTE_READONLY );
+  m_BasicSizer->Add(m_BasicTotpTextCtrl, wxGBPosition(/*row:*/ 11, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 3), wxEXPAND|wxALIGN_CENTER_VERTICAL|wxBOTTOM, 7);
+
+  auto BasicPasswordBitmap = new wxStaticBitmap(panel, wxID_ANY, bitmapCheckmarkPlaceholder, wxDefaultPosition, wxDefaultSize, 0);
+  m_BasicSizer->Add(BasicPasswordBitmap, wxGBPosition(/*row:*/ 11, /*column:*/ 3), wxDefaultSpan, wxALIGN_CENTER_VERTICAL|wxALIGN_LEFT|wxBOTTOM, 7);
+
+  m_BasicShowHideTotpCtrl = new wxBitmapButton(panel, ID_BUTTON_SHOWHIDE_TOTP, wxUtilities::GetBitmapResource(wxT("graphics/eye.xpm")), wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+  m_BasicShowHideTotpCtrl->SetToolTip(_("Show authentication code"));
+  m_BasicSizer->Add(m_BasicShowHideTotpCtrl, wxGBPosition(/*row:*/ 11, /*column:*/ 4), wxDefaultSpan, wxALIGN_CENTER_VERTICAL|wxBOTTOM, 7);
+
+  m_BasicTotpButton = new wxButton( panel, ID_BUTTON_COPY_TOTP, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0 );
+  m_BasicTotpButton->SetToolTip(_("Copy authentication code to clipboard"));
+  m_BasicSizer->Add(m_BasicTotpButton, wxGBPosition(/*row:*/ 11, /*column:*/ 5), wxDefaultSpan, wxALIGN_CENTER_VERTICAL|wxLEFT|wxBOTTOM, 7);
+
+  if (!HasItemTwoFactorKey()) {
+    DisableAuthenticationCodeControls();
+  }
+
+  auto *itemStaticText25 = new wxStaticText( panel, wxID_STATIC, _("URL"), wxDefaultPosition, wxDefaultSize, 0 );
+  m_BasicSizer->Add(itemStaticText25, wxGBPosition(/*row:*/ 12, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 5), wxEXPAND|wxALIGN_LEFT|wxALIGN_BOTTOM|wxBOTTOM, 0);
 
   m_BasicUrlTextCtrl = new wxTextCtrl( panel, ID_TEXTCTRL_URL, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(m_BasicUrlTextCtrl, wxGBPosition(/*row:*/ 5, /*column:*/ 1), wxDefaultSpan, wxEXPAND|wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  m_BasicSizer->Add(m_BasicUrlTextCtrl, wxGBPosition(/*row:*/ 13, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 5), wxEXPAND|wxALIGN_CENTER_VERTICAL|wxBOTTOM, 7);
 
   auto *itemButton29 = new wxButton( panel, ID_GO_BTN, _("Go"), wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(itemButton29, wxGBPosition(/*row:*/ 5, /*column:*/ 2), wxDefaultSpan, wxALIGN_CENTER_VERTICAL|wxLEFT, 5);
+  m_BasicSizer->Add(itemButton29, wxGBPosition(/*row:*/ 13, /*column:*/ 5), wxDefaultSpan, wxALIGN_CENTER_VERTICAL|wxLEFT|wxBOTTOM, 7);
 
-  auto *itemStaticText30 = new wxStaticText( panel, wxID_STATIC, _("EMail:"), wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(itemStaticText30, wxGBPosition(/*row:*/ 6, /*column:*/ 0), wxDefaultSpan, wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  auto *itemStaticText30 = new wxStaticText( panel, wxID_STATIC, _("Email"), wxDefaultPosition, wxDefaultSize, 0 );
+  m_BasicSizer->Add(itemStaticText30, wxGBPosition(/*row:*/ 14, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 5), wxEXPAND|wxALIGN_LEFT|wxALIGN_BOTTOM|wxBOTTOM, 0);
 
   m_BasicEmailTextCtrl = new wxTextCtrl( panel, ID_TEXTCTRL_EMAIL, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(m_BasicEmailTextCtrl, wxGBPosition(/*row:*/ 6, /*column:*/ 1), wxDefaultSpan, wxEXPAND|wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  m_BasicSizer->Add(m_BasicEmailTextCtrl, wxGBPosition(/*row:*/ 15, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 5), wxEXPAND|wxALIGN_CENTER_VERTICAL|wxBOTTOM, 7);
 
   auto *itemButton34 = new wxButton( panel, ID_SEND_BTN, _("Send"), wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(itemButton34, wxGBPosition(/*row:*/ 6, /*column:*/ 2), wxDefaultSpan, wxALIGN_CENTER_VERTICAL|wxLEFT, 5);
+  m_BasicSizer->Add(itemButton34, wxGBPosition(/*row:*/ 15, /*column:*/ 5), wxDefaultSpan, wxALIGN_CENTER_VERTICAL|wxLEFT|wxBOTTOM, 7);
 
-  auto *itemStaticText36 = new wxStaticText( panel, wxID_STATIC, _("Notes:"), wxDefaultPosition, wxDefaultSize, 0 );
-  m_BasicSizer->Add(itemStaticText36, wxGBPosition(/*row:*/ 7, /*column:*/ 0), wxDefaultSpan, wxALIGN_RIGHT|wxALIGN_TOP|wxALL, 5);
+  auto *itemStaticText36 = new wxStaticText( panel, wxID_STATIC, _("Notes"), wxDefaultPosition, wxDefaultSize, 0 );
+  m_BasicSizer->Add(itemStaticText36, wxGBPosition(/*row:*/ 16, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 6), wxEXPAND|wxALIGN_LEFT|wxALIGN_BOTTOM|wxBOTTOM, 0);
 
-  m_BasicNotesTextCtrl = new wxTextCtrl( panel, ID_TEXTCTRL_NOTES, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE );
-  m_BasicSizer->Add(m_BasicNotesTextCtrl, wxGBPosition(/*row:*/ 7, /*column:*/ 1), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 3) , wxEXPAND|wxALL, 5);
+  m_BasicNotesTextCtrl = new wxTextCtrl( panel, ID_TEXTCTRL_NOTES, wxEmptyString, wxDefaultPosition, wxSize(-1, 100), wxTE_MULTILINE );
+  m_BasicSizer->Add(m_BasicNotesTextCtrl, wxGBPosition(/*row:*/ 17, /*column:*/ 0), wxGBSpan(/*rowspan:*/ 1, /*columnspan:*/ 6), wxEXPAND, 0);
 
-  m_BasicSizer->AddGrowableCol(1);  // Growable text entry fields
-  m_BasicSizer->AddGrowableRow(7);  // Growable notes field
+  m_BasicSizer->AddGrowableCol(2);  // Growable text entry fields
+  m_BasicSizer->AddGrowableRow(15); // Growable notes field
 
   m_BasicTitleTextCtrl->SetValidator(wxGenericValidator(&m_Title));
   m_BasicUsernameTextCtrl->SetValidator(wxGenericValidator(&m_User));
@@ -359,42 +430,67 @@ wxPanel* AddEditPropSheetDlg::CreateBasicPanel()
 wxPanel* AddEditPropSheetDlg::CreateAdditionalPanel()
 {
   auto *panel = new wxPanel(GetBookCtrl(), ID_PANEL_ADDITIONAL, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL);
-  auto *itemBoxSizer39 = new wxBoxSizer(wxVERTICAL);
-  panel->SetSizer(itemBoxSizer39);
+  auto *mainSizer = new wxBoxSizer(wxVERTICAL);
+  panel->SetSizer(mainSizer);
 
-  auto *itemFlexGridSizer40 = new wxFlexGridSizer(0, 2, 0, 0);
-  itemBoxSizer39->Add(itemFlexGridSizer40, 0, wxEXPAND | wxALL, 5);
-  auto *itemStaticText41 = new wxStaticText(panel, wxID_STATIC, _("Autotype:"), wxDefaultPosition, wxDefaultSize, 0);
-  itemFlexGridSizer40->Add(itemStaticText41, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxALL, 5);
+  auto *vBoxSizer = new wxBoxSizer(wxVERTICAL);
+  mainSizer->Add(vBoxSizer, 1, wxEXPAND|wxALL, 10);
+
+  auto *itemStaticText41 = new wxStaticText(panel, wxID_STATIC, _("Autotype"), wxDefaultPosition, wxDefaultSize, 0);
+  wxUtilities::DisableIfUnsupported(wxUtilities::Feature::Autotype, itemStaticText41);
+  vBoxSizer->Add(itemStaticText41, 0, wxALIGN_LEFT|wxBOTTOM, 5);
 
   auto *itemTextCtrl42 = new wxTextCtrl(panel, ID_TEXTCTRL_AUTOTYPE, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0);
-  itemFlexGridSizer40->Add(itemTextCtrl42, 0, wxEXPAND | wxALL, 5);
+  wxUtilities::DisableIfUnsupported(wxUtilities::Feature::Autotype, itemTextCtrl42);
+  vBoxSizer->Add(itemTextCtrl42, 0, wxALIGN_LEFT|wxEXPAND|wxBOTTOM, 12);
 
-  auto *itemStaticText43 = new wxStaticText(panel, wxID_STATIC, _("Run Cmd:"), wxDefaultPosition, wxDefaultSize, 0);
-  itemFlexGridSizer40->Add(itemStaticText43, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxALL, 5);
+  auto *itemStaticText43 = new wxStaticText(panel, wxID_STATIC, _("Run Command"), wxDefaultPosition, wxDefaultSize, 0);
+  vBoxSizer->Add(itemStaticText43, 0, wxALIGN_LEFT|wxBOTTOM, 5);
 
   auto *itemTextCtrl44 = new wxTextCtrl(panel, ID_TEXTCTRL_RUN_CMD, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0);
-  itemFlexGridSizer40->Add(itemTextCtrl44, 0, wxEXPAND | wxALL, 5);
+  vBoxSizer->Add(itemTextCtrl44, 0, wxALIGN_LEFT|wxEXPAND|wxBOTTOM, 12);
 
-  auto *itemStaticText45 = new wxStaticText(panel, wxID_STATIC, _("Double-Click Action:"), wxDefaultPosition, wxDefaultSize, 0);
-  itemFlexGridSizer40->Add(itemStaticText45, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxALL, 5);
+  auto *itemStaticText45 = new wxStaticText(panel, wxID_STATIC, _("Double-Click Action"), wxDefaultPosition, wxDefaultSize, 0);
+  vBoxSizer->Add(itemStaticText45, 0, wxALIGN_LEFT|wxBOTTOM, 5);
 
   wxArrayString dcaComboBoxStrings;
   setupDCAStrings(dcaComboBoxStrings);
   m_AdditionalDoubleClickActionCtrl = new wxComboBox(panel, ID_COMBOBOX_DBC_ACTION, wxEmptyString, wxDefaultPosition, wxDefaultSize, dcaComboBoxStrings, wxCB_READONLY);
-  itemFlexGridSizer40->Add(m_AdditionalDoubleClickActionCtrl, 0, wxEXPAND | wxALL, 5);
+  vBoxSizer->Add(m_AdditionalDoubleClickActionCtrl, 0, wxALIGN_LEFT|wxEXPAND|wxBOTTOM, 12);
 
-  auto *itemStaticText47 = new wxStaticText(panel, wxID_STATIC, _("Shift-Double-Click Action:"), wxDefaultPosition, wxDefaultSize, 0);
-  itemFlexGridSizer40->Add(itemStaticText47, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxALL, 5);
+  auto *itemStaticText47 = new wxStaticText(panel, wxID_STATIC, _("Shift-Double-Click Action"), wxDefaultPosition, wxDefaultSize, 0);
+  vBoxSizer->Add(itemStaticText47, 0, wxALIGN_LEFT|wxBOTTOM, 5);
 
   wxArrayString sdcaComboBoxStrings;
   setupDCAStrings(sdcaComboBoxStrings);
   m_AdditionalShiftDoubleClickActionCtrl = new wxComboBox(panel, ID_COMBOBOX_SDBC_ACTION, wxEmptyString, wxDefaultPosition, wxDefaultSize, sdcaComboBoxStrings, wxCB_READONLY);
-  itemFlexGridSizer40->Add(m_AdditionalShiftDoubleClickActionCtrl, 0, wxEXPAND | wxALL, 5);
+  vBoxSizer->Add(m_AdditionalShiftDoubleClickActionCtrl, 0, wxALIGN_LEFT|wxEXPAND|wxBOTTOM, 12);
+
+  auto *vBoxSizerTwoFactoryKey = new wxBoxSizer(wxVERTICAL);
+  vBoxSizer->Add(vBoxSizerTwoFactoryKey, 0, wxALIGN_LEFT|wxEXPAND|wxBOTTOM, 12);
+
+  auto *staticTextTwoFactorKey = new wxStaticText(panel, wxID_STATIC, _("Authentication Secret"), wxDefaultPosition, wxDefaultSize, 0);
+  vBoxSizerTwoFactoryKey->Add(staticTextTwoFactorKey, 0, wxALIGN_LEFT|wxBOTTOM, 5);
+
+  m_AdditionalHBoxSizerTwoFactorKey = new wxBoxSizer(wxHORIZONTAL);
+  vBoxSizerTwoFactoryKey->Add(m_AdditionalHBoxSizerTwoFactorKey, 1, wxALIGN_LEFT|wxEXPAND|wxBOTTOM, 12);
+
+  m_AdditionalTwoFactorKeyCtrl = new wxTextCtrl(panel, ID_TEXTCTRL_2FK, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_PASSWORD);
+  m_AdditionalHBoxSizerTwoFactorKey->Add(m_AdditionalTwoFactorKeyCtrl, 1, wxALIGN_LEFT|wxEXPAND|wxRIGHT, 5);
+
+  m_AdditionalShowHideCtrl = new wxBitmapButton(panel, ID_BUTTON_SHOWHIDE_2FK, wxUtilities::GetBitmapResource(wxT("graphics/eye.xpm")), wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+  m_AdditionalShowHideCtrl->SetToolTip(_("Show authentication secret"));
+  m_AdditionalHBoxSizerTwoFactorKey->Add(m_AdditionalShowHideCtrl, 0, wxALIGN_LEFT|wxALIGN_CENTER|wxRIGHT, 5);
+
+  if (m_Core.IsReadOnly() || !IsItemNormalOrBase()) {
+    staticTextTwoFactorKey->Disable();
+    m_AdditionalTwoFactorKeyCtrl->Disable();
+    m_AdditionalShowHideCtrl->Disable();
+  }
 
   auto *itemStaticBoxSizer49Static = new wxStaticBox(panel, wxID_ANY, _("Password History"));
   auto *itemStaticBoxSizer49 = new wxStaticBoxSizer(itemStaticBoxSizer49Static, wxVERTICAL);
-  itemBoxSizer39->Add(itemStaticBoxSizer49, 0, wxEXPAND | wxALL, 5);
+  vBoxSizer->Add(itemStaticBoxSizer49, 1, wxEXPAND | wxALL, 0);
   auto *itemBoxSizer50 = new wxBoxSizer(wxHORIZONTAL);
   itemStaticBoxSizer49->Add(itemBoxSizer50, 0, wxEXPAND | wxALL, 5);
   auto *itemCheckBox51 = new wxCheckBox(panel, ID_CHECKBOX_KEEP, _("Keep"), wxDefaultPosition, wxDefaultSize, 0);
@@ -416,21 +512,21 @@ wxPanel* AddEditPropSheetDlg::CreateAdditionalPanel()
   itemBoxSizer50->Add(itemStaticText53, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
   m_AdditionalPasswordHistoryGrid = new wxGrid(panel, ID_GRID_PW_HIST, wxDefaultPosition, wxDefaultSize, wxSUNKEN_BORDER | wxHSCROLL | wxVSCROLL);
-  m_AdditionalPasswordHistoryGrid->SetDefaultColSize(150);
+  m_AdditionalPasswordHistoryGrid->SetDefaultColSize(225);
   m_AdditionalPasswordHistoryGrid->SetDefaultRowSize(25);
   m_AdditionalPasswordHistoryGrid->SetColLabelSize(25);
   m_AdditionalPasswordHistoryGrid->SetRowLabelSize(0);
   m_AdditionalPasswordHistoryGrid->CreateGrid(5, 2, wxGrid::wxGridSelectRows);
-  itemStaticBoxSizer49->Add(m_AdditionalPasswordHistoryGrid, 0, wxEXPAND | wxALL, 5);
+  itemStaticBoxSizer49->Add(m_AdditionalPasswordHistoryGrid, 1, wxEXPAND | wxALL, 5);
 
   auto *itemBoxSizer55 = new wxBoxSizer(wxHORIZONTAL);
   itemStaticBoxSizer49->Add(itemBoxSizer55, 0, wxEXPAND | wxALL, 5);
-  wxButton *itemButton56 = new wxButton(panel, ID_BUTTON_CLEAR_HIST, _("Clear History"), wxDefaultPosition, wxDefaultSize, 0);
+  auto *itemButton56 = new wxButton(panel, ID_BUTTON_CLEAR_HIST, _("Clear History"), wxDefaultPosition, wxDefaultSize, 0);
   itemBoxSizer55->Add(itemButton56, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
   itemBoxSizer55->AddStretchSpacer();
 
-  wxButton *itemButton58 = new wxButton(panel, ID_BUTTON_COPY_ALL, _("Copy All"), wxDefaultPosition, wxDefaultSize, 0);
+  auto *itemButton58 = new wxButton(panel, ID_BUTTON_COPY_ALL, _("Copy All"), wxDefaultPosition, wxDefaultSize, 0);
   itemBoxSizer55->Add(itemButton58, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
   itemTextCtrl42->SetValidator(wxGenericValidator(&m_Autotype));
@@ -450,22 +546,25 @@ wxPanel* AddEditPropSheetDlg::CreateDatesTimesPanel()
 
   auto *itemStaticBoxSizer61Static = new wxStaticBox(panel, wxID_ANY, _("Password Expiry"));
   auto *itemStaticBoxSizer61 = new wxStaticBoxSizer(itemStaticBoxSizer61Static, wxVERTICAL);
-  itemBoxSizer60->Add(itemStaticBoxSizer61, 0, wxEXPAND | wxALL, 5);
+  itemBoxSizer60->Add(itemStaticBoxSizer61, 0, wxEXPAND | wxALL, 10);
   auto *itemBoxSizer62 = new wxBoxSizer(wxVERTICAL);
   itemStaticBoxSizer61->Add(itemBoxSizer62, 0, wxEXPAND | wxALL, 0);
   auto *itemFlexGridSizer63 = new wxFlexGridSizer(0, 3, 0, 0);
   itemBoxSizer62->Add(itemFlexGridSizer63, 0, wxEXPAND | wxALL, 5);
   m_DatesTimesExpireOnCtrl = new wxRadioButton(panel, ID_RADIOBUTTON_ON, _("On"), wxDefaultPosition, wxDefaultSize, 0);
-  m_DatesTimesExpireOnCtrl->SetValue(false);
   itemFlexGridSizer63->Add(m_DatesTimesExpireOnCtrl, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
-  m_DatesTimesExpiryDateCtrl = new wxDatePickerCtrl(panel, ID_DATECTRL_EXP_DATE, wxDateTime(), wxDefaultPosition, wxDefaultSize, wxDP_DEFAULT);
+  auto DatePickerType = wxDP_DEFAULT;
+#if wxCHECK_VERSION(3, 1, 0)
+  if ((wxGetOsVersion() & wxOS_MAC) && wxCheckOsVersion(10, 15, 4))
+    DatePickerType = wxDP_DROPDOWN;
+#endif
+  m_DatesTimesExpiryDateCtrl = new wxDatePickerCtrl(panel, ID_DATECTRL_EXP_DATE, wxDateTime(), wxDefaultPosition, wxDefaultSize, DatePickerType);
   itemFlexGridSizer63->Add(m_DatesTimesExpiryDateCtrl, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
   itemFlexGridSizer63->AddStretchSpacer();
 
   m_DatesTimesExpireInCtrl = new wxRadioButton(panel, ID_RADIOBUTTON_IN, _("In"), wxDefaultPosition, wxDefaultSize, 0);
-  m_DatesTimesExpireInCtrl->SetValue(false);
   itemFlexGridSizer63->Add(m_DatesTimesExpireInCtrl, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
   auto *itemBoxSizer68 = new wxBoxSizer(wxHORIZONTAL);
@@ -482,30 +581,28 @@ wxPanel* AddEditPropSheetDlg::CreateDatesTimesPanel()
 
   itemBoxSizer68->Add(m_DatesTimesExpiryTimeCtrl, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
-  auto *itemStaticText70 = new wxStaticText(panel, ID_STATICTEXT_DAYS, _("days"), wxDefaultPosition, wxDefaultSize, 0);
-  itemBoxSizer68->Add(itemStaticText70, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+  m_DatesTimesStaticTextDays = new wxStaticText(panel, ID_STATICTEXT_DAYS, _("days"), wxDefaultPosition, wxDefaultSize, 0);
+  itemBoxSizer68->Add(m_DatesTimesStaticTextDays, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
   m_DatesTimesRecurringExpiryCtrl = new wxCheckBox(panel, ID_CHECKBOX_RECURRING, _("Recurring"), wxDefaultPosition, wxDefaultSize, 0);
-  m_DatesTimesRecurringExpiryCtrl->SetValue(true);
   itemFlexGridSizer63->Add(m_DatesTimesRecurringExpiryCtrl, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
   auto *itemBoxSizer72 = new wxBoxSizer(wxHORIZONTAL);
   itemBoxSizer62->Add(itemBoxSizer72, 0, wxALIGN_LEFT | wxLEFT | wxRIGHT | wxBOTTOM, 5);
   m_DatesTimesNeverExpireCtrl = new wxRadioButton(panel, ID_RADIOBUTTON_NEVER, _("Never"), wxDefaultPosition, wxDefaultSize, 0);
-  m_DatesTimesNeverExpireCtrl->SetValue(false);
   itemBoxSizer72->Add(m_DatesTimesNeverExpireCtrl, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
   auto *itemBoxSizer74 = new wxBoxSizer(wxHORIZONTAL);
   itemBoxSizer62->Add(itemBoxSizer74, 0, wxEXPAND | wxALL, 5);
-  auto *itemStaticText75 = new wxStaticText(panel, wxID_STATIC, _("Original Value:"), wxDefaultPosition, wxDefaultSize, 0);
-  itemBoxSizer74->Add(itemStaticText75, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+  auto *itemStaticText75 = new wxStaticText(panel, wxID_STATIC, _("Current Setting:"), wxDefaultPosition, wxDefaultSize, 0);
+  itemBoxSizer74->Add(itemStaticText75, 0, wxALIGN_TOP | wxALL, 5);
 
-  auto *itemStaticText76 = new wxStaticText(panel, wxID_STATIC, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0);
-  itemBoxSizer74->Add(itemStaticText76, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+  m_DatesTimesCurrentCtrl = new wxStaticText(panel, wxID_STATIC, wxEmptyString, wxDefaultPosition, wxSize(-1, 40), 0);
+  itemBoxSizer74->Add(m_DatesTimesCurrentCtrl, 0, wxALIGN_TOP | wxALL, 5);
 
   auto *itemStaticBoxSizer77Static = new wxStaticBox(panel, wxID_ANY, _("Statistics"));
   auto *itemStaticBoxSizer77 = new wxStaticBoxSizer(itemStaticBoxSizer77Static, wxVERTICAL);
-  itemBoxSizer60->Add(itemStaticBoxSizer77, 0, wxEXPAND | wxALL, 5);
+  itemBoxSizer60->Add(itemStaticBoxSizer77, 0, wxEXPAND | wxALL, 10);
   auto *itemFlexGridSizer78 = new wxFlexGridSizer(0, 2, 0, 0);
   itemStaticBoxSizer77->Add(itemFlexGridSizer78, 0, wxALIGN_LEFT | wxALL, 5);
   auto *itemStaticText79 = new wxStaticText(panel, wxID_STATIC, _("Created on:"), wxDefaultPosition, wxDefaultSize, 0);
@@ -534,7 +631,7 @@ wxPanel* AddEditPropSheetDlg::CreateDatesTimesPanel()
 
   m_DatesTimesExpiryTimeCtrl->SetValidator(wxGenericValidator(&m_ExpirationTimeInterval));
   m_DatesTimesRecurringExpiryCtrl->SetValidator(wxGenericValidator(&m_Recurring));
-  itemStaticText76->SetValidator(wxGenericValidator(&m_CurrentExpirationTime));
+  m_DatesTimesCurrentCtrl->SetValidator(wxGenericValidator(&m_OriginalExpirationStr));
   itemStaticText80->SetValidator(wxGenericValidator(&m_CreationTime));
   itemStaticText82->SetValidator(wxGenericValidator(&m_ModificationTime));
   itemStaticText84->SetValidator(wxGenericValidator(&m_AccessTime));
@@ -545,18 +642,18 @@ wxPanel* AddEditPropSheetDlg::CreateDatesTimesPanel()
 
 wxPanel* AddEditPropSheetDlg::CreatePasswordPolicyPanel()
 {
-  auto *panel = new wxPanel(GetBookCtrl(), ID_PANEL_PPOLICY, wxDefaultPosition, wxDefaultSize, wxHSCROLL | wxTAB_TRAVERSAL);
+  auto *panel = new wxPanel(GetBookCtrl(), ID_PANEL_PPOLICY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL);
   auto *itemBoxSizer61 = new wxBoxSizer(wxVERTICAL);
   panel->SetSizer(itemBoxSizer61);
 
   auto *itemStaticBoxSizer88Static = new wxStaticBox(panel, wxID_ANY, _("Random password generation rules"));
   auto *itemStaticBoxSizer88 = new wxStaticBoxSizer(itemStaticBoxSizer88Static, wxVERTICAL);
-  itemBoxSizer61->Add(itemStaticBoxSizer88, 0, wxEXPAND | wxALL, 5);
+  itemBoxSizer61->Add(itemStaticBoxSizer88, 0, wxEXPAND | wxALL, 10);
 
   auto *itemBoxSizer89 = new wxBoxSizer(wxHORIZONTAL);
   itemStaticBoxSizer88->Add(itemBoxSizer89, 2, wxEXPAND | wxALL, 0);
 
-  m_PasswordPolicyUseDatabaseCtrl = new wxCheckBox(panel, ID_CHECKBOX42, _("Use Database Policy"), wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
+  m_PasswordPolicyUseDatabaseCtrl = new wxCheckBox(panel, ID_CHECKBOX42, _("Use Named Policy"), wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
   m_PasswordPolicyUseDatabaseCtrl->SetValue(false);
   itemBoxSizer89->Add(m_PasswordPolicyUseDatabaseCtrl, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
@@ -735,11 +832,11 @@ wxPanel* AddEditPropSheetDlg::CreateAttachmentPanel()
   m_AttachmentPreviewStatus = new wxStaticText(panel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE_HORIZONTAL, _T("ID_STATICTEXT_STATUS"));
   StaticBoxSizerPreview->Add(m_AttachmentPreviewStatus, 1, wxALL|wxALIGN_CENTER, 5);
   StaticBoxSizerPreview->SetMinSize(wxSize(-1, 300));
-  BoxSizerMain->Add(StaticBoxSizerPreview, 1, wxALL|wxEXPAND, 5);
+  BoxSizerMain->Add(StaticBoxSizerPreview, 1, wxALL|wxEXPAND, 10);
 
   auto *StaticBoxSizerFile = new wxStaticBoxSizer(wxVERTICAL, panel, _("File"));
   m_AttachmentFilePath = new wxStaticText(panel, wxID_ANY, _("N/A"), wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT|wxST_ELLIPSIZE_MIDDLE, _T("ID_STATICTEXT_PATH"));
-  StaticBoxSizerFile->Add(m_AttachmentFilePath, 0, wxALL|wxEXPAND, 5);
+  StaticBoxSizerFile->Add(m_AttachmentFilePath, 0, wxLEFT|wxBOTTOM|wxRIGHT|wxEXPAND, 10);
 
   auto *BoxSizer3 = new wxBoxSizer(wxHORIZONTAL);
   m_AttachmentButtonImport = new wxButton(panel, ID_BUTTON_IMPORT, _("Import..."), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON_IMPORT"));
@@ -749,7 +846,7 @@ wxPanel* AddEditPropSheetDlg::CreateAttachmentPanel()
   m_AttachmentButtonRemove = new wxButton(panel, ID_BUTTON_REMOVE, _("Remove"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON_REMOVE"));
   BoxSizer3->Add(m_AttachmentButtonRemove, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
   StaticBoxSizerFile->Add(BoxSizer3, 0, wxALL|wxEXPAND, 5);
-  BoxSizerMain->Add(StaticBoxSizerFile, 0, wxALL|wxEXPAND, 5);
+  BoxSizerMain->Add(StaticBoxSizerFile, 0, wxLEFT|wxBOTTOM|wxRIGHT|wxEXPAND, 10);
 
   auto *StaticBoxSizerProperties = new wxStaticBoxSizer(wxHORIZONTAL, panel, _("Properties"));
   auto *FlexGridSizer1 = new wxFlexGridSizer(0, 2, 0, 0);
@@ -785,7 +882,7 @@ wxPanel* AddEditPropSheetDlg::CreateAttachmentPanel()
   m_AttachmentFileLastModifiedDate = new wxStaticText(panel, wxID_ANY, _T(""), wxDefaultPosition, wxDefaultSize, 0);
   FlexGridSizer1->Add(m_AttachmentFileLastModifiedDate, 1, wxALL|wxEXPAND, 5);
   StaticBoxSizerProperties->Add(FlexGridSizer1, 1, wxALL|wxEXPAND, 5);
-  BoxSizerMain->Add(StaticBoxSizerProperties, 0, wxALL|wxEXPAND, 5);
+  BoxSizerMain->Add(StaticBoxSizerProperties, 0, wxLEFT|wxBOTTOM|wxRIGHT|wxEXPAND, 10);
 
   panel->SetSizer(BoxSizerMain);
 
@@ -1175,9 +1272,13 @@ void AddEditPropSheetDlg::ApplyFontPreferences()
   ApplyFontPreference(m_BasicUsernameTextCtrl, PWSprefs::StringPrefs::AddEditFont);               // Username
   ApplyFontPreference(m_BasicPasswordTextCtrl, PWSprefs::StringPrefs::PasswordFont);              // Password
   ApplyFontPreference(m_BasicPasswordConfirmationTextCtrl, PWSprefs::StringPrefs::PasswordFont);  // Confirmation Password
+  ApplyFontPreference(m_BasicTotpTextCtrl, PWSprefs::StringPrefs::PasswordFont);                  // TOTP
   ApplyFontPreference(m_BasicUrlTextCtrl, PWSprefs::StringPrefs::AddEditFont);                    // URL
   ApplyFontPreference(m_BasicEmailTextCtrl, PWSprefs::StringPrefs::AddEditFont);                  // Email
   ApplyFontPreference(m_BasicNotesTextCtrl, PWSprefs::StringPrefs::NotesFont);                    // Notes
+
+  // Tab: "Additional"
+  ApplyFontPreference(m_AdditionalTwoFactorKeyCtrl, PWSprefs::StringPrefs::AddEditFont);          // Two Factor Key
 
   // Tab: "Password Policy"
   ApplyFontPreference(m_PasswordPolicyOwnSymbolsTextCtrl, PWSprefs::StringPrefs::PasswordFont);   // User defined symbols
@@ -1342,52 +1443,129 @@ static struct {short pv; wxString name;}
   }
 }
 
-void AddEditPropSheetDlg::UpdateExpTimes()
+// Build a string to describe the original expiry setting in the entry
+wxString AddEditPropSheetDlg::makeExpiryString()
 {
-  // From m_item to display
+  wxString finished;
+  wxDateTime dtX(m_OriginalDayttt);
+  wxString dateStr = dtX.FormatISODate();  // Expiration date as YYYY-MM-DD
+  int expDays = IntervalFromDate(dtX);     // Days until expiration
 
-  m_Item.GetXTime(m_tttExpirationTime);
-  m_Item.GetXTimeInt(m_ExpirationTimeInterval);
-  m_ExpirationTime = m_CurrentExpirationTime = m_Item.GetXTimeL().c_str();
-
-  if (m_ExpirationTime.empty())
-    m_ExpirationTime = m_CurrentExpirationTime = _("Never");
-
-  wxCommandEvent dummy;
-  wxDateTime exp;
-  if (m_tttExpirationTime == 0) { // never expires
-    m_DatesTimesExpireOnCtrl->SetValue(false);
-    m_DatesTimesExpireInCtrl->SetValue(false);
-    m_DatesTimesNeverExpireCtrl->SetValue(true);
-    exp = wxDateTime::Now();
-    dummy.SetEventObject(m_DatesTimesNeverExpireCtrl);
-  } else {
-    exp = wxDateTime(m_tttExpirationTime);
-    if (m_ExpirationTimeInterval == 0) { // expiration specified as date
-      m_DatesTimesExpireOnCtrl->SetValue(true);
-      m_DatesTimesExpireInCtrl->SetValue(false);
-      m_DatesTimesNeverExpireCtrl->SetValue(false);
-      m_DatesTimesExpiryTimeCtrl->Enable(false);
-      m_Recurring = false;
-      dummy.SetEventObject(m_DatesTimesExpireOnCtrl);
-    } else { // exp. specified as interval
-      m_DatesTimesExpireOnCtrl->SetValue(false);
-      m_DatesTimesExpireInCtrl->SetValue(true);
-      m_DatesTimesNeverExpireCtrl->SetValue(false);
-      m_DatesTimesExpiryDateCtrl->Enable(false);
-      m_DatesTimesExpiryTimeCtrl->SetValue(m_ExpirationTimeInterval);
-      m_Recurring = true;
-      dummy.SetEventObject(m_DatesTimesExpireInCtrl);
+  // Specific date
+  if (m_OriginalDayttt && !m_OriginalRecurring) {
+    if (expDays > 0) {
+      wxString str = (expDays == 1) ? _("Expires in %d day (%s)") : _("Expires in %d days (%s)") ;
+      finished.Printf(str, expDays, dateStr);
+    } else {
+      finished.Printf(_("Expired on %s"), dateStr);
+      m_DatesTimesCurrentCtrl->SetForegroundColour(*wxRED);
     }
-    m_DatesTimesRecurringExpiryCtrl->Enable(m_Recurring);
-    m_DatesTimesExpiryDateCtrl->SetValue(exp);
   }
 
-  if (exp > wxDateTime::Today())
-    exp = wxDateTime::Today(); // otherwise we can never move exp date back
-  m_DatesTimesExpiryDateCtrl->SetRange(exp, wxDateTime(time_t(-1)));
+  // Recurring interval
+  if (m_OriginalRecurring) {
+    wxString str = (m_ExpirationTimeInterval == 1) ? _("Every %d day from last change")
+                                                   : _("Every %d days from last change") ;
 
-  OnExpRadiobuttonSelected(dummy); // setup enable/disable of expiry-related controls
+    finished.Printf(str, m_ExpirationTimeInterval);
+    if (expDays > 0) {
+      str.Printf(_("\n(Next expiration on %s)"), dateStr);
+    } else {
+      str.Printf(_("\n(Expired on %s)"), dateStr);
+      m_DatesTimesCurrentCtrl->SetForegroundColour(*wxRED);
+    }
+    finished += str;
+  }
+
+  // Never expires
+  if (finished.empty())
+    finished = _("Never Expires");
+
+  return finished;
+}
+
+// Called once to initialize the expiration controls
+void AddEditPropSheetDlg::InitializeExpTimes()
+{
+  // From m_item to display
+  time_t tttExpirationTime;
+  m_Item.GetXTime(tttExpirationTime);
+  m_Item.GetXTimeInt(m_ExpirationTimeInterval);
+  m_OriginalDayttt = 0;
+  m_FirstInClick = true;
+
+  // Special case: Some entries, created with recent versions of pwsafe, might have
+  // an interval but no date, which is interpreted as "Never".  We are going to ignore
+  // the interval and use the user-set default.  If an expiry change is made, the entry will
+  // be re-written correctly.
+  int defaultInterval = PWSprefs::GetInstance()->GetPref(PWSprefs::DefaultExpiryDays);
+
+  // Initialize these controls as disabled, they will be enabled as needed.
+  m_DatesTimesExpiryDateCtrl->Disable();
+  m_DatesTimesExpiryTimeCtrl->Disable();
+  m_DatesTimesStaticTextDays->Disable();
+  m_DatesTimesRecurringExpiryCtrl->Disable();
+
+  wxDateTime expiryDate;
+  if (tttExpirationTime == 0) { // never expires
+    m_DatesTimesNeverExpireCtrl->SetValue(true);
+    m_OriginalRecurring = false;
+    m_Item.SetXTimeInt(0);  // Special case: No date, there should be no interval
+    m_ExpirationTimeInterval = defaultInterval;
+    expiryDate = TodayPlusInterval(m_ExpirationTimeInterval);
+    m_OriginalButton = m_DatesTimesNeverExpireCtrl;
+
+  } else {
+    expiryDate = wxDateTime(tttExpirationTime).GetDateOnly();  // Remove time part
+    m_OriginalDayttt = expiryDate.GetTicks();
+
+    if (m_ExpirationTimeInterval == 0) { // expiration specified as date
+      m_DatesTimesExpireOnCtrl->SetValue(true);
+      m_DatesTimesExpiryDateCtrl->Enable();
+      m_OriginalRecurring = false;
+
+      // Set initierval to days until expiration
+      // If it's already expired, use the default value
+      m_ExpirationTimeInterval = IntervalFromDate(expiryDate);
+      if (m_ExpirationTimeInterval <= 0)
+        m_ExpirationTimeInterval = defaultInterval;
+
+      m_OriginalButton = m_DatesTimesExpireOnCtrl;
+
+    } else { // exp. specified as recurring interval
+      m_DatesTimesExpireInCtrl->SetValue(true);
+      m_DatesTimesExpiryTimeCtrl->Enable();
+      m_DatesTimesStaticTextDays->Enable();
+      m_DatesTimesRecurringExpiryCtrl->Enable();
+      m_OriginalRecurring = true;
+      m_FirstInClick = false;
+      expiryDate = TodayPlusInterval(m_ExpirationTimeInterval);
+      m_OriginalButton = m_DatesTimesExpireInCtrl;
+    }
+  }
+
+  // The date picker controls on different platforms (i.e. Mac vs. GTK)
+  // behave differently with respect to handling the time portion.  This
+  // results in different values when converting to or from time_t and
+  // false or missed change detections.
+  // GTK seems to remove the time part, macOS preserves it.
+  // Since we only care about the date for expiration, let's just
+  // remove the time wherever we need the date.
+  // Note the wxWidgets documentation says Today() returns the
+  // time part set to 0, and Today() and Now() both use the local time zone.
+  m_DatesTimesExpiryDateCtrl->SetValue(expiryDate);
+
+  // Set the recurring checkbox default state.
+  // The Recurring checkbox is only used if the user selects the interval radio button.
+  m_Recurring = m_OriginalRecurring;
+
+  // Build a string to describe the original setting in the entry
+  m_OriginalExpirationStr = makeExpiryString();
+
+  if (expiryDate > wxDateTime::Today())
+    expiryDate = wxDateTime::Today(); // otherwise we can never move exp date back
+  m_DatesTimesExpiryDateCtrl->SetRange(expiryDate, wxDateTime(time_t(-1)));
+  m_DatesTimesExpiryTimeCtrl->SetRange(1, 3650);
 }
 
 void AddEditPropSheetDlg::ItemFieldsToPropSheet()
@@ -1437,6 +1615,10 @@ void AddEditPropSheetDlg::ItemFieldsToPropSheet()
   m_Email = m_Item.GetEmail().c_str();
   m_Password = m_Item.GetPassword();
 
+  if (IsItemNormalOrBase() && HasItemTwoFactorKey()) {
+    auto twoFactorKey = m_Item.GetTwoFactorKey();
+    m_AdditionalTwoFactorKeyCtrl->ChangeValue(twoFactorKey.c_str());
+  }
   if (m_Item.IsAlias()) {
     // Update password to alias form
     // Show text stating that it is an alias
@@ -1490,19 +1672,17 @@ void AddEditPropSheetDlg::ItemFieldsToPropSheet()
       m_User = towxstring(prefs->GetPref(PWSprefs::DefaultUsername));
     }
   } else { // EDIT or VIEW
-    PWHistList pwhl;
-    size_t pwh_max, num_err;
-
     const StringX pwh_str = m_Item.GetPWHistory();
     if (!pwh_str.empty()) {
       m_PasswordHistory = towxstring(pwh_str);
-      m_KeepPasswordHistory = CreatePWHistoryList(pwh_str,
-                                         pwh_max, num_err,
-                                         pwhl, PWSUtil::TMC_LOCALE);
+
+      PWHistList pwhl(pwh_str, PWSUtil::TMC_LOCALE);
+      m_KeepPasswordHistory = pwhl.isSaving();
+
       if (size_t(m_AdditionalPasswordHistoryGrid->GetNumberRows()) < pwhl.size()) {
         m_AdditionalPasswordHistoryGrid->AppendRows(static_cast<int>(pwhl.size() - m_AdditionalPasswordHistoryGrid->GetNumberRows()));
       }
-      m_MaxPasswordHistory = int(pwh_max);
+      m_MaxPasswordHistory = int(pwhl.getMax());
       //reverse-sort the history entries so that we list the newest first
       std::sort(pwhl.begin(), pwhl.end(), newer());
       int row = 0;
@@ -1520,7 +1700,7 @@ void AddEditPropSheetDlg::ItemFieldsToPropSheet()
   } // m_type
 
   // Password Expiration
-  UpdateExpTimes();
+  InitializeExpTimes();
   // Modification times
   m_CreationTime = m_Item.GetCTimeL().c_str();
   m_ModificationTime = m_Item.GetPMTimeL().c_str();
@@ -1598,6 +1778,15 @@ void AddEditPropSheetDlg::OnGenerateButtonClick(wxCommandEvent& WXUNUSED(evt))
 }
 
 /*!
+ * wxEVT_TEXT event handler for ID_TEXTCTRL_PASSWORD and ID_TEXTCTRL_PASSWORD2
+ */
+
+void AddEditPropSheetDlg::OnPasswordChanged(wxCommandEvent& event)
+{
+  UpdatePasswordConfirmationIcons();
+}
+
+/*!
  * wxEVT_COMMAND_BUTTON_CLICKED event handler for ID_BUTTON_SHOWHIDE
  */
 
@@ -1608,25 +1797,69 @@ void AddEditPropSheetDlg::OnShowHideClick(wxCommandEvent& WXUNUSED(evt))
       const CItemData *pbci = m_Core.GetBaseEntry(&m_Item);
       ASSERT(pbci);
       if (pbci) {
-        UpdatePasswordTextCtrl(m_BasicPasswordConfirmationTextCtrl, pbci->GetPassword().c_str(), m_BasicPasswordTextCtrl, ID_TEXTCTRL_PASSWORD2, wxTE_READONLY);
-        m_BasicPasswordConfirmationTextCtrl->Enable(true);
         m_IsPasswordHidden = false;
+        UpdatePasswordTextCtrl(m_BasicSizer, m_BasicPasswordConfirmationTextCtrl, pbci->GetPassword().c_str(), m_BasicPasswordTextCtrl, wxTE_READONLY);
+        m_BasicPasswordConfirmationTextCtrl->Enable(true);
+        m_BasicPasswordConfirmationTextCtrl->SetModified(false);   // Reset the modification flag to indicate no changes made by the user.
+                                                                   // See also 'UpdatePasswordConfirmationIcons'.
       }
     }
     else {
       m_IsPasswordHidden = true;
-      UpdatePasswordTextCtrl(m_BasicPasswordConfirmationTextCtrl, wxEmptyString, m_BasicPasswordTextCtrl, ID_TEXTCTRL_PASSWORD2, wxTE_READONLY);
+      UpdatePasswordTextCtrl(m_BasicSizer, m_BasicPasswordConfirmationTextCtrl, wxEmptyString, m_BasicPasswordTextCtrl, wxTE_READONLY);
       m_BasicPasswordConfirmationTextCtrl->Enable(false);
+      m_BasicPasswordConfirmationTextCtrl->SetModified(false);     // Reset the modification flag to indicate no changes made by the user.
+                                                                   // See also 'UpdatePasswordConfirmationIcons'.
     }
   }
   else {
     m_Password = m_BasicPasswordTextCtrl->GetValue().c_str(); // save visible password
     if (m_IsPasswordHidden) {
       ShowPassword();
+      UpdatePasswordConfirmationIcons(false);     // Hide confirmation icons
+      UpdatePasswordConfirmationAsterisk(false);  // Hide asterisk at password confirmation label, if only one password entry field is shown
     } else {
       HidePassword();
+      UpdatePasswordConfirmationIcons(true);      // Show confirmation icons
+      UpdatePasswordConfirmationAsterisk(true);   // Show asterisk at password confirmation label when two password entry fields are shown
     }
   }
+}
+
+/*!
+ * wxEVT_COMMAND_BUTTON_CLICKED event handler for ID_BUTTON_SHOWHIDE_2FK
+ */
+
+void AddEditPropSheetDlg::OnShowHide2FKClick(wxCommandEvent& WXUNUSED(evt))
+{
+  if (m_IsTwoFactorKeyHidden) {
+    ShowTwoFactorKey();
+  } else {
+    HideTwoFactorKey();
+  }
+}
+
+/*!
+ * wxEVT_COMMAND_BUTTON_CLICKED event handler for ID_BUTTON_SHOWHIDE_TOTP
+ */
+
+void AddEditPropSheetDlg::OnShowHideTotpClick(wxCommandEvent& WXUNUSED(evt))
+{
+  if (m_IsTotpHidden) {
+    ShowTotp();
+  } else {
+    HideTotp();
+  }
+}
+
+/*!
+ * wxEVT_COMMAND_BUTTON_CLICKED event handler for ID_BUTTON_COPY_TOTP
+ */
+
+void AddEditPropSheetDlg::OnCopyAuthCodeClick(wxCommandEvent &event)
+{
+  const_cast<PasswordSafeFrame*>(GetPwSafe())->CopyAuthCodeToClipboard(&m_ItemTotp);
+  m_UpdateTotpInClipboard = true;
 }
 
 /*!
@@ -1669,12 +1902,13 @@ void AddEditPropSheetDlg::DoAliasButtonClick()
       if(bChangeToBaseEntry) {
         wxMessageBox(_("Shortcut or Alias selected, use Base entry instead"), _("Warning"), wxOK | wxICON_EXCLAMATION);
       }
-      if(m_Item.IsAlias() && (pbci == nullptr)) {
+      if(m_Item.IsAlias() && (pbci == nullptr)) { // user chose to change alias to normal entry
         m_Item.SetEntryType(CItemData::ET_NORMAL);
         m_Password = m_Item.GetPassword();
+        m_AliasChange = Alias2Normal;
         RemoveAlias();
       }
-      else if(m_Item.IsAlias() && (m_Core.GetBaseEntry(&m_Item) != pbci)) {
+      else if(m_Item.IsAlias() && (m_Core.GetBaseEntry(&m_Item) != pbci)) { // user changed alias to another base entry
         const pws_os::CUUID baseUUID = pbci->GetUUID();
         m_Item.SetBaseUUID(baseUUID);
         m_Password = L"[" +
@@ -1682,10 +1916,11 @@ void AddEditPropSheetDlg::DoAliasButtonClick()
                     pbci->GetTitle() + L":" +
                     pbci->GetUser()  + L"]";
         m_BasicPasswordTextCtrl->SetValue(m_Password.c_str());
+        m_AliasChange = AliasRebased;
         if(! m_IsPasswordHidden)
           m_BasicPasswordConfirmationTextCtrl->SetValue(pbci->GetPassword().c_str());
       }
-      else if(! m_Item.IsAlias() && pbci) {
+      else if(! m_Item.IsAlias() && pbci) { // user chose to change normal entry to alias
         const pws_os::CUUID baseUUID = pbci->GetUUID();
         m_Item.SetAlias();
         m_Item.SetBaseUUID(baseUUID);
@@ -1693,55 +1928,111 @@ void AddEditPropSheetDlg::DoAliasButtonClick()
                     pbci->GetGroup() + L":" +
                     pbci->GetTitle() + L":" +
                     pbci->GetUser()  + L"]";
+        m_AliasChange = Normal2Alias;
         ShowAlias();
       }
     }
   }
 }
 
-void AddEditPropSheetDlg::UpdatePasswordTextCtrl(wxTextCtrl* &textCtrl, const wxString value, wxTextCtrl* before, const int id, const int style)
+void AddEditPropSheetDlg::ShowTwoFactorKey()
 {
-  // Per Dave Silvia's suggestion:
-  // Following kludge since wxTE_PASSWORD style is immutable
-  wxTextCtrl *tmp = textCtrl;
-  textCtrl = new wxTextCtrl(m_BasicPanel, id,
-                            value,
-                            wxDefaultPosition, wxDefaultSize,
-                            style);
-  ASSERT(textCtrl);
-  if (!value.IsEmpty()) {
-    textCtrl->ChangeValue(value);
-    textCtrl->SetModified(true);
-  }
-  ApplyFontPreference(textCtrl, PWSprefs::StringPrefs::PasswordFont);
-  textCtrl->MoveAfterInTabOrder(before);
-  m_BasicSizer->Replace(tmp, textCtrl);
-  delete tmp;
-  m_BasicSizer->Layout();
+  m_IsTwoFactorKeyHidden = false;
+  auto text = m_AdditionalTwoFactorKeyCtrl->GetValue();
+  UpdatePasswordTextCtrl(m_AdditionalHBoxSizerTwoFactorKey, m_AdditionalTwoFactorKeyCtrl, text, m_AdditionalShiftDoubleClickActionCtrl, 0);
+  m_AdditionalShowHideCtrl->SetBitmapLabel(wxUtilities::GetBitmapResource(wxT("graphics/eye_close.xpm")));
+  m_AdditionalShowHideCtrl->SetToolTip(_("Hide authentication secret"));
+}
+
+void AddEditPropSheetDlg::HideTwoFactorKey()
+{
+  m_IsTwoFactorKeyHidden = true;
+  auto text = m_AdditionalTwoFactorKeyCtrl->GetValue();
+  UpdatePasswordTextCtrl(m_AdditionalHBoxSizerTwoFactorKey, m_AdditionalTwoFactorKeyCtrl, text, m_AdditionalShiftDoubleClickActionCtrl, wxTE_PASSWORD);
+  m_AdditionalShowHideCtrl->SetBitmapLabel(wxUtilities::GetBitmapResource(wxT("graphics/eye.xpm")));
+  m_AdditionalShowHideCtrl->SetToolTip(_("Show authentication secret"));
+}
+
+void AddEditPropSheetDlg::ShowTotp()
+{
+  m_IsTotpHidden = false;
+  auto *window = wxWindow::FindWindowById(ID_BUTTON_ALIAS, GetBookCtrl());
+  wxControl *control = window ? dynamic_cast<wxControl*>(window) : m_BasicPasswordConfirmationBitmap;
+  auto text = m_BasicTotpTextCtrl->GetValue();
+  UpdatePasswordTextCtrl(m_BasicSizer, m_BasicTotpTextCtrl, text, control, wxTE_READONLY);
+  m_BasicShowHideTotpCtrl->SetBitmapLabel(wxUtilities::GetBitmapResource(wxT("graphics/eye_close.xpm")));
+  m_BasicShowHideTotpCtrl->SetToolTip(_("Hide authentication code"));
+}
+
+void AddEditPropSheetDlg::HideTotp()
+{
+  m_IsTotpHidden = true;
+  auto *window = wxWindow::FindWindowById(ID_BUTTON_ALIAS, GetBookCtrl());
+  wxControl *control = window ? dynamic_cast<wxControl*>(window) : m_BasicPasswordConfirmationBitmap;
+  auto text = m_BasicTotpTextCtrl->GetValue();
+  UpdatePasswordTextCtrl(m_BasicSizer, m_BasicTotpTextCtrl, text, control, wxTE_PASSWORD|wxTE_READONLY);
+  m_BasicShowHideTotpCtrl->SetBitmapLabel(wxUtilities::GetBitmapResource(wxT("graphics/eye.xpm")));
+  m_BasicShowHideTotpCtrl->SetToolTip(_("Show authentication code"));
 }
 
 void AddEditPropSheetDlg::ShowPassword()
 {
   m_IsPasswordHidden = false;
-  m_BasicShowHideCtrl->SetLabel(_("&Hide"));
-
-  UpdatePasswordTextCtrl(m_BasicPasswordTextCtrl, m_Password.c_str(), m_BasicUsernameTextCtrl, ID_TEXTCTRL_PASSWORD, 0);
+  UpdatePasswordTextCtrl(m_BasicSizer, m_BasicPasswordTextCtrl, m_Password.c_str(), m_BasicUsernameTextCtrl, 0);
   // Disable confirmation Ctrl, as the user can see the password entered
-  ApplyFontPreference(m_BasicPasswordConfirmationTextCtrl, PWSprefs::StringPrefs::PasswordFont);
-  m_BasicPasswordConfirmationTextCtrl->Clear();
+  m_BasicPasswordConfirmationTextCtrl->ChangeValue(wxEmptyString); // Use of ChangeValue instead of SetValue to not trigger an input event.
   m_BasicPasswordConfirmationTextCtrl->Enable(false);
+  m_BasicPasswordConfirmationTextCtrl->SetModified(false);         // Reset of modification flag for password confirmation icon handling.
+  m_BasicShowHideCtrl->SetBitmapLabel(wxUtilities::GetBitmapResource(wxT("graphics/eye_close.xpm")));
+  m_BasicShowHideCtrl->SetToolTip(_("Hide password"));
 }
 
 void AddEditPropSheetDlg::HidePassword()
 {
   m_IsPasswordHidden = true;
-  m_BasicShowHideCtrl->SetLabel(_("&Show"));
-  
   const wxString pwd = m_Password.c_str();
-  UpdatePasswordTextCtrl(m_BasicPasswordTextCtrl, pwd, m_BasicUsernameTextCtrl, ID_TEXTCTRL_PASSWORD, wxTE_PASSWORD);
-  ApplyFontPreference(m_BasicPasswordConfirmationTextCtrl, PWSprefs::StringPrefs::PasswordFont);
-  m_BasicPasswordConfirmationTextCtrl->ChangeValue(pwd);
+  UpdatePasswordTextCtrl(m_BasicSizer, m_BasicPasswordTextCtrl, pwd, m_BasicUsernameTextCtrl, wxTE_PASSWORD);
+  m_BasicPasswordConfirmationTextCtrl->ChangeValue(pwd);           // Use of ChangeValue instead of SetValue to not trigger an input event.
   m_BasicPasswordConfirmationTextCtrl->Enable(true);
+  m_BasicPasswordConfirmationTextCtrl->SetModified(false);         // Reset of modification flag for password confirmation icon handling.
+  m_BasicShowHideCtrl->SetBitmapLabel(wxUtilities::GetBitmapResource(wxT("graphics/eye.xpm")));
+  m_BasicShowHideCtrl->SetToolTip(_("Show password"));
+}
+
+void AddEditPropSheetDlg::UpdatePasswordConfirmationIcons(bool show)
+{
+  // There is nothing to do if there is no user input, but the content of
+  // the password input fields may have been changed by the hide/show functionality.
+  if (!m_BasicPasswordTextCtrl->IsModified() && !m_BasicPasswordConfirmationTextCtrl->IsModified()) {
+    return;
+  }
+  // If both passwords entered are the same, the green checkmark icons will appear to indicate the match.
+  if (m_BasicPasswordTextCtrl->GetValue() == m_BasicPasswordConfirmationTextCtrl->GetValue()) {
+    m_BasicPasswordBitmap->SetBitmap(bitmapCheckmarkGreen);
+    m_BasicPasswordConfirmationBitmap->SetBitmap(bitmapCheckmarkGreen);
+  }
+  // The gray checkmark icons will be shown to indicate that some input is given that do not match.
+  else {
+    m_BasicPasswordBitmap->SetBitmap(bitmapCheckmarkGray);
+    m_BasicPasswordConfirmationBitmap->SetBitmap(bitmapCheckmarkGray);
+  }
+  // Only display the check mark symbol to the right of each input field when there is some input.
+  if (show) {
+    m_BasicPasswordBitmap->Show(!m_BasicPasswordTextCtrl->IsEmpty());
+    m_BasicPasswordConfirmationBitmap->Show(!m_BasicPasswordConfirmationTextCtrl->IsEmpty());
+  }
+  // Show empty icons to mimic hidden icons, avoiding layout issues with text input fields.
+  else {
+    m_BasicPasswordBitmap->SetBitmap(bitmapCheckmarkPlaceholder);
+    m_BasicPasswordBitmap->Show();
+    m_BasicPasswordConfirmationBitmap->SetBitmap(bitmapCheckmarkPlaceholder);
+    m_BasicPasswordConfirmationBitmap->Show();
+  }
+}
+
+void AddEditPropSheetDlg::UpdatePasswordConfirmationAsterisk(bool show)
+{
+  FindWindow(ID_STATICTEXT_PASSWORD2)->Show(show);
 }
 
 void AddEditPropSheetDlg::ShowAlias()
@@ -1757,23 +2048,20 @@ void AddEditPropSheetDlg::ShowAlias()
                 pbci->GetUser()  + L"]";
   }
   m_BasicPasswordTextLabel->SetLabel(_("Alias:"));
-  UpdatePasswordTextCtrl(m_BasicPasswordTextCtrl, m_Password.c_str(), m_BasicUsernameTextCtrl, ID_TEXTCTRL_PASSWORD, wxTE_READONLY);
+  UpdatePasswordTextCtrl(m_BasicSizer, m_BasicPasswordTextCtrl, m_Password.c_str(), m_BasicUsernameTextCtrl, wxTE_READONLY);
   
   m_BasicPasswordConfirmationTextLabel->SetLabel(_("Password:"));
   if (pbci && PWSprefs::GetInstance()->GetPref(PWSprefs::ShowPWDefault)) {
     m_IsPasswordHidden = false;
-    m_BasicShowHideCtrl->SetLabel(_("&Hide"));
     const wxString pwd = pbci->GetPassword().c_str();
-    UpdatePasswordTextCtrl(m_BasicPasswordConfirmationTextCtrl, pwd, m_BasicPasswordTextCtrl, ID_TEXTCTRL_PASSWORD2, wxTE_READONLY);
+    UpdatePasswordTextCtrl(m_BasicSizer, m_BasicPasswordConfirmationTextCtrl, pwd, m_BasicPasswordTextCtrl, wxTE_READONLY);
     ApplyFontPreference(m_BasicPasswordConfirmationTextCtrl, PWSprefs::StringPrefs::PasswordFont);
     m_BasicPasswordConfirmationTextCtrl->ChangeValue(pwd);
     m_BasicPasswordConfirmationTextCtrl->Enable(true);
   }
   else {
     m_IsPasswordHidden = true;
-    m_BasicShowHideCtrl->SetLabel(_("&Show"));
-    
-    UpdatePasswordTextCtrl(m_BasicPasswordConfirmationTextCtrl, wxEmptyString, m_BasicPasswordTextCtrl, ID_TEXTCTRL_PASSWORD2, wxTE_READONLY);
+    UpdatePasswordTextCtrl(m_BasicSizer, m_BasicPasswordConfirmationTextCtrl, wxEmptyString, m_BasicPasswordTextCtrl, wxTE_READONLY);
     ApplyFontPreference(m_BasicPasswordConfirmationTextCtrl, PWSprefs::StringPrefs::PasswordFont);
     m_BasicPasswordConfirmationTextCtrl->Clear();
     m_BasicPasswordConfirmationTextCtrl->Enable(false);
@@ -1794,17 +2082,15 @@ void AddEditPropSheetDlg::RemoveAlias()
   
   if (PWSprefs::GetInstance()->GetPref(PWSprefs::ShowPWDefault)) {
     m_IsPasswordHidden = false;
-    m_BasicShowHideCtrl->SetLabel(_("&Hide"));
-    UpdatePasswordTextCtrl(m_BasicPasswordTextCtrl, pwd, m_BasicUsernameTextCtrl, ID_TEXTCTRL_PASSWORD, 0);
-    UpdatePasswordTextCtrl(m_BasicPasswordConfirmationTextCtrl, pwd, m_BasicPasswordTextCtrl, ID_TEXTCTRL_PASSWORD2, wxTE_PASSWORD);
+    UpdatePasswordTextCtrl(m_BasicSizer, m_BasicPasswordTextCtrl, pwd, m_BasicUsernameTextCtrl, 0);
+    UpdatePasswordTextCtrl(m_BasicSizer, m_BasicPasswordConfirmationTextCtrl, pwd, m_BasicPasswordTextCtrl, wxTE_PASSWORD);
     m_BasicPasswordConfirmationTextCtrl->Clear();
     m_BasicPasswordConfirmationTextCtrl->Enable(false);
   }
   else {
     m_IsPasswordHidden = true;
-    m_BasicShowHideCtrl->SetLabel(_("&Show"));
-    UpdatePasswordTextCtrl(m_BasicPasswordTextCtrl, pwd, m_BasicUsernameTextCtrl, ID_TEXTCTRL_PASSWORD, wxTE_PASSWORD);
-    UpdatePasswordTextCtrl(m_BasicPasswordConfirmationTextCtrl, pwd, m_BasicPasswordTextCtrl, ID_TEXTCTRL_PASSWORD2, wxTE_PASSWORD);
+    UpdatePasswordTextCtrl(m_BasicSizer, m_BasicPasswordTextCtrl, pwd, m_BasicUsernameTextCtrl, wxTE_PASSWORD);
+    UpdatePasswordTextCtrl(m_BasicSizer, m_BasicPasswordConfirmationTextCtrl, pwd, m_BasicPasswordTextCtrl, wxTE_PASSWORD);
     m_BasicPasswordConfirmationTextCtrl->ChangeValue(pwd);
     m_BasicPasswordConfirmationTextCtrl->Enable(true);
   }
@@ -1851,8 +2137,8 @@ bool AddEditPropSheetDlg::ValidateBasicData()
     if (password != secondPassword) {
       wxMessageDialog msg(
         this,
-        _("Passwords do not match"),
-        _("Error"),
+        _("Passwords do not match."),
+        _("Mismatching passwords"),
         wxOK|wxICON_ERROR
       );
       msg.ShowModal();
@@ -1865,6 +2151,26 @@ bool AddEditPropSheetDlg::ValidateBasicData()
     return IsGroupUsernameTitleCombinationUnique();
   }
 
+  return true;
+}
+
+bool AddEditPropSheetDlg::ValidateAdditionalData()
+{
+  const StringX twofactorkey = tostringx(m_AdditionalTwoFactorKeyCtrl->GetValue());
+  if (!twofactorkey.empty()) {
+    CItemData ci_temp;
+    ci_temp.SetTwoFactorKey(twofactorkey);
+    PWSTotp::TOTP_Result totp_result = PWSTotp::ValidateTotpConfiguration(ci_temp);
+    if (totp_result != PWSTotp::Success) {
+      wxMessageDialog msg(this, 
+        _("The authentication key is invalid.\nAllowed characters are a-z, A-Z, 2-7, space and dash."), 
+        _("Authentication Key Error"), wxICON_ERROR|wxOK);
+
+      msg.ShowModal();
+      m_AdditionalTwoFactorKeyCtrl->SetFocus();
+      return false;
+    }
+  }
   return true;
 }
 
@@ -1897,7 +2203,7 @@ bool AddEditPropSheetDlg::IsGroupUsernameTitleCombinationUnique()
       wxMessageDialog msg(
         this,
         _("An entry or shortcut with the same Group, Title and Username already exists."),
-        _("Error"),
+        _("Duplicate entry"),
         wxOK|wxICON_ERROR
       );
       msg.ShowModal();
@@ -1909,6 +2215,123 @@ bool AddEditPropSheetDlg::IsGroupUsernameTitleCombinationUnique()
   return true;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// TOTP Begin
+
+/// wxEVT_TIMER_EVENT event handler for ID_TIMER_TOTP_COUNTDOWN
+void AddEditPropSheetDlg::OnTotpCountdownTimer(wxTimerEvent& WXUNUSED(event))
+{
+  if (GetTotpItem() == nullptr) {
+    if (m_TotpTimer)
+      m_TotpTimer->Stop();
+    return;
+  }
+
+  UpdateTotp();
+}
+
+/// wxEVT_NOTEBOOK_PAGE_CHANGING event handler
+void AddEditPropSheetDlg::OnTabChanging(wxBookCtrlEvent& event)
+{
+  // The second tab ('Additional') has the id 1.
+  // The event is to be ignored if the change does not originate
+  // from the additional tab to one of the other tabs.
+  if (event.GetOldSelection() != 1) {
+    event.Skip();
+    return;
+  }
+  // Do not allow tab change if two-factor key is invalid
+  if (!ValidateAdditionalData()) {
+    event.Veto();
+    return;
+  }
+  ApplyTwoFactorKey(m_ItemTotp);
+  if (HasItemTwoFactorKey()) {
+    EnableAuthenticationCodeControls();
+    StartTotp();
+  }
+  else {
+    DisableAuthenticationCodeControls();
+    StopTotp();
+  }
+}
+
+void AddEditPropSheetDlg::StartTotp()
+{
+  if (m_TotpTimer && m_TotpTimer->IsRunning()) {
+    return;
+  }
+  // Show and update the TOTP only when an existing item 
+  // with an existing TOTP configuration is edited or viewed.
+  m_TotpTimer = new wxTimer(this, ID_TIMER_TOTP_COUNTDOWN);
+  if (HasItemTwoFactorKey()) {
+    m_TotpTimer->Start(GetTotpCountdownInterval());
+  }
+}
+
+void AddEditPropSheetDlg::StopTotp()
+{
+  // The wxTimer destructor stops the timer if it is running.
+  delete m_TotpTimer;
+  m_TotpTimer = nullptr;
+  m_UpdateTotpInClipboard = false;
+}
+
+void AddEditPropSheetDlg::UpdateTotp()
+{
+  static StringX s_LatestAuthCode(L"");
+  auto pwsafe = wxGetApp().GetPasswordSafeFrame();
+  auto totpData = pwsafe->GetTotpData(&m_ItemTotp);
+  // Update the authentication code in the text input field
+  // and the countdown on the 'Copy' authentication code button
+  m_BasicTotpTextCtrl->ChangeValue(towxstring(totpData.first));
+  m_BasicTotpButton->SetLabel(towxstring(totpData.second));
+  // Update the authentication code in the clipboard only
+  // if copying was triggered by the user and if it changed
+  if (m_UpdateTotpInClipboard && (s_LatestAuthCode != totpData.first)) {
+    s_LatestAuthCode = totpData.first;
+    pwsafe->CopyAuthCodeToClipboard(&m_ItemTotp);
+  }
+}
+
+// Remark: Validation check is already done in ValidateAdditionalData() called by OnOk()
+void AddEditPropSheetDlg::ApplyTwoFactorKey(CItemData& item)
+{
+  const StringX twofactorkey = tostringx(m_AdditionalTwoFactorKeyCtrl->GetValue());
+  if (twofactorkey != item.GetTwoFactorKey()) {
+    // Stop updating the authentication code in the clipboard
+    // if the user has changed the two-factor key
+    m_UpdateTotpInClipboard = false;
+  }
+  if (!twofactorkey.empty()) {
+    item.SetTwoFactorKey(twofactorkey);
+  }
+  else if (HasItemTwoFactorKey()) {
+    // Remove existing two factor key if text input field is empty in Edit mode
+    item.ClearTwoFactorKey();
+  }
+}
+
+void AddEditPropSheetDlg::EnableAuthenticationCodeControls()
+{
+  m_BasicTotpTextLabel->Enable();
+  m_BasicTotpTextCtrl->Enable();
+  m_BasicShowHideTotpCtrl->Enable();
+  m_BasicTotpButton->Enable();
+}
+
+void AddEditPropSheetDlg::DisableAuthenticationCodeControls()
+{
+  m_BasicTotpTextLabel->Disable();
+  m_BasicTotpTextCtrl->Disable();
+  m_BasicTotpTextCtrl->ChangeValue(wxEmptyString);
+  m_BasicShowHideTotpCtrl->Disable();
+  m_BasicTotpButton->Disable();
+  m_BasicTotpButton->SetLabel(wxEmptyString);
+}
+
+// TOTP End
+///////////////////////////////////////////////////////////////////////////////
 
 Command* AddEditPropSheetDlg::NewAddEntryCommand(bool bNewCTime)
 {
@@ -1929,10 +2352,34 @@ Command* AddEditPropSheetDlg::NewAddEntryCommand(bool bNewCTime)
   m_Item.SetNotes(tostringx(m_Notes));
   m_Item.SetURL(tostringx(m_Url));
   m_Item.SetEmail(tostringx(m_Email));
-  if(! m_Item.IsAlias())
-    m_Item.SetPassword(password);
-  else
-    m_Item.SetPassword(L"");
+  m_Item.SetPassword(password);
+
+  // Are we dealing with a new alias?
+     BaseEntryParms pl;
+    pl.InputType = CItemData::ET_NORMAL;
+    if (m_Core.ParseAliasPassword(password, pl)) {
+      // Core validations:
+      const StringX selfGTU = L"[" + m_Item.GetGroup() + L":" + m_Item.GetTitle() + L":" + m_Item.GetUser() + L"]";
+      StringX errmess;
+      bool yesNoError;
+
+      bool isAliasValid = m_Core.CheckAliasValidity(pl, selfGTU, errmess, yesNoError);
+
+
+      if (!isAliasValid) {
+        long style = yesNoError ? (wxYES_NO | wxNO_DEFAULT) : wxOK;
+
+	      wxMessageDialog msg(this, errmess.c_str(), _("Alias Password Error"), style);
+
+        if (msg.ShowModal() == wxID_NO) {
+          m_BasicPasswordTextCtrl->SetFocus();
+          return nullptr;
+        }
+      } else {
+        m_Item.SetAlias();
+        m_Item.SetBaseUUID(pl.base_uuid);
+      }
+    }
 
   /////////////////////////////////////////////////////////////////////////////
   // Tab: "Additional"
@@ -1949,23 +2396,27 @@ Command* AddEditPropSheetDlg::NewAddEntryCommand(bool bNewCTime)
   }
   wxASSERT(m_Item.IsCreationTimeSet());
   if (m_KeepPasswordHistory) {
-    m_Item.SetPWHistory(MakePWHistoryHeader(true, m_MaxPasswordHistory, 0));
+    m_Item.SetPWHistory(PWHistList::MakePWHistoryHeader(true, m_MaxPasswordHistory));
+  }
+
+  if (IsItemNormalOrBase()) {
+    ApplyTwoFactorKey(m_Item);
   }
 
   /////////////////////////////////////////////////////////////////////////////
   // Tab: "Dates and Times"
   /////////////////////////////////////////////////////////////////////////////
 
-  m_Item.SetXTime(m_tttExpirationTime);
-  if (m_ExpirationTimeInterval > 0 && m_ExpirationTimeInterval <= 3650) {
-    m_Item.SetXTimeInt(m_ExpirationTimeInterval);
-  }
 
   if (m_Item.IsAlias()) {
     m_Item.SetXTime(time_t(0));
-  }
-  else {
-    m_Item.SetXTime(m_tttExpirationTime);
+    m_Item.SetXTimeInt(time_t(0));
+
+  } else if (!m_DatesTimesNeverExpireCtrl->GetValue()) {
+    m_Item.SetXTime(NormalizeExpDate(m_DatesTimesExpiryDateCtrl->GetValue()).GetTicks());
+    if (m_DatesTimesExpireInCtrl->GetValue() && m_Recurring) {
+      m_Item.SetXTimeInt(m_ExpirationTimeInterval);
+    }
   }
 
   /////////////////////////////////////////////////////////////////////////////
@@ -2010,9 +2461,17 @@ Command* AddEditPropSheetDlg::NewAddEntryCommand(bool bNewCTime)
   /////////////////////////////////////////////////////////////////////////////
 
   m_Item.SetStatus(CItemData::ES_ADDED);
-    
+
+  auto *commands = MultiCommands::Create(&m_Core);
+  auto itemGroup = m_Item.GetGroup();
+
+  if (m_Core.IsEmptyGroup(itemGroup)) { // The group is no longer empty if a new item is added
+    commands->Add(
+      DBEmptyGroupsCommand::Create(&m_Core, itemGroup, DBEmptyGroupsCommand::EG_DELETE)
+    );
+  }
+
   if(m_Item.IsAlias()) { // If alias is pointing to shortcut base the shortcuts must be removed before converting to alias base
-    auto commands = MultiCommands::Create(&m_Core);
     const CItemData *pbci = m_Core.GetBaseEntry(&m_Item);
     ASSERT(pbci);
     if (pbci && pbci->IsShortcutBase()) {
@@ -2026,18 +2485,15 @@ Command* AddEditPropSheetDlg::NewAddEntryCommand(bool bNewCTime)
         );
       }
     }
-  
-    commands->Add(AddEntryCommand::Create(&m_Core, m_Item, m_Item.GetBaseUUID(),
-                                          (m_ItemAttachment.HasUUID() && m_ItemAttachment.HasContent()) ? &m_ItemAttachment : nullptr)
-                  );
-    return commands;
   }
-  
-  return AddEntryCommand::Create(
-    &m_Core,
-    m_Item, m_Item.GetBaseUUID(),
-    (m_ItemAttachment.HasUUID() && m_ItemAttachment.HasContent()) ? &m_ItemAttachment : nullptr
+
+  commands->Add(
+    AddEntryCommand::Create(
+      &m_Core, m_Item, m_Item.GetBaseUUID(),
+      (m_ItemAttachment.HasUUID() && m_ItemAttachment.HasContent()) ? &m_ItemAttachment : nullptr
+    )
   );
+  return commands;
 }
 
 uint32_t AddEditPropSheetDlg::GetChanges() const
@@ -2073,7 +2529,8 @@ uint32_t AddEditPropSheetDlg::GetChanges() const
   if (tostringx(m_RunCommand) != m_Item.GetRunCommand()) {
     changes |= Changes::RunCommand;
   }
-  if (PreparePasswordHistory() != m_Item.GetPWHistory() && 
+  // Prepare a string from the dialog and make sure the current item is sorted the same way
+  if (PreparePasswordHistory() != (StringX)(PWHistList(m_Item.GetPWHistory(), PWSUtil::TMC_LOCALE)) &&
       !(m_Item.GetPWHistory().empty() && m_PasswordHistory.empty() && static_cast<unsigned int>(m_MaxPasswordHistory) == prefs->GetPref(PWSprefs::NumPWHistoryDefault) && m_KeepPasswordHistory == prefs->GetPref(PWSprefs::SavePasswordHistory))
   ) {
     changes |= Changes::History;
@@ -2104,17 +2561,25 @@ uint32_t AddEditPropSheetDlg::GetChanges() const
     }
   }
   {
+    int lastXTimeInt;
     time_t lastXtime;
     m_Item.GetXTime(lastXtime);
-    if (m_tttExpirationTime != lastXtime) {
+    m_Item.GetXTimeInt(lastXTimeInt);
+
+    time_t newExpirationDate = m_DatesTimesExpiryDateCtrl->GetValue().GetDateOnly().GetTicks();
+    if ( m_DatesTimesExpireOnCtrl->GetValue() && ((m_OriginalButton != m_DatesTimesExpireOnCtrl)
+                                                  || (newExpirationDate != m_OriginalDayttt)) ) {
       changes |= Changes::XTime;
     }
-  }
-  {
-    int lastXTimeInt;
-    m_Item.GetXTimeInt(lastXTimeInt);
-    if (m_ExpirationTimeInterval != lastXTimeInt && !(!m_Recurring && lastXTimeInt == 0)) {
+
+    if ( m_DatesTimesExpireInCtrl->GetValue() && ((m_OriginalButton != m_DatesTimesExpireInCtrl)
+                                                  || (m_ExpirationTimeInterval != lastXTimeInt)
+                                                  || (m_Recurring != m_OriginalRecurring)) ) {
       changes |= Changes::XTimeInt;
+    }
+
+    if (m_DatesTimesNeverExpireCtrl->GetValue() && (m_OriginalButton != m_DatesTimesNeverExpireCtrl)) {
+      changes |= Changes::XTimeNever;
     }
   }
   // password
@@ -2141,9 +2606,9 @@ uint32_t AddEditPropSheetDlg::GetChanges() const
       }
     }
   }
-  // policy
+  // policy options string (symbol list is checked above)
   {
-    PWPolicy oldPWP;
+    StringX oldPWP;
     // get item's effective policy:
     const StringX oldPolName = m_Item.GetPolicyName();
     if (oldPolName.empty()) { // either item-specific or default:
@@ -2151,14 +2616,22 @@ uint32_t AddEditPropSheetDlg::GetChanges() const
         oldPWP = PWSprefs::GetInstance()->GetDefaultPolicy();
       }
       else {
-        m_Item.GetPWPolicy(oldPWP);
+        oldPWP = m_Item.GetPWPolicy();
       }
     }
     else {
-      m_Core.GetPolicyFromName(oldPolName, oldPWP);
+      PWPolicy pol;
+      m_Core.GetPolicyFromName(oldPolName, pol);
+      oldPWP = pol;  // convert to StringX
     }
-    // now check with dbox's effective policy:
-    if (oldPWP != GetSelectedPWPolicy()) {
+
+    // Now check with dbox's effective policy:
+    // If using a defined policy but the name is empty, it will cause
+    // an assertion in GetSelectedPWPolicy() - GetPolicyFromName().
+    // This should only happen if an incomplete policy edit is canceled.
+    if (   (m_PasswordPolicyUseDatabaseCtrl->GetValue() && m_PasswordPolicyNamesCtrl->GetValue().empty())
+        || (oldPWP != StringX(GetSelectedPWPolicy()))
+    ) {
       changes |= Changes::Policy;
     }
   }
@@ -2187,6 +2660,15 @@ uint32_t AddEditPropSheetDlg::GetChanges() const
       }
     }
   }
+  // two factor key
+  {
+    if (IsItemNormalOrBase()) {
+      const StringX twofactorkey = tostringx(m_AdditionalTwoFactorKeyCtrl->GetValue());
+      if (twofactorkey != m_ItemTotp.GetTwoFactorKey()) {
+        changes |= Changes::TwoFactorKey;
+      }
+    }
+  }
   return changes;
 }
 
@@ -2198,40 +2680,17 @@ StringX AddEditPropSheetDlg::PreparePasswordHistory() const
   // but the first byte could be zero, meaning we are not tracking it _FROM_NOW_.
   // Clearing the history is something the user must do himself with the "Clear History" button
 
-  StringX result;
   // First, Get a list of all password history entries
-  size_t pwh_max, num_err;
-  PWHistList pwhl;
-  (void)CreatePWHistoryList(tostringx(m_PasswordHistory), pwh_max, num_err, pwhl, PWSUtil::TMC_LOCALE);
+  PWHistList pwhl(tostringx(m_PasswordHistory), PWSUtil::TMC_LOCALE);
 
-  // Create a new PWHistory header, as per settings in this dialog
-  size_t numEntries = std::min(pwhl.size(), static_cast<size_t>(m_MaxPasswordHistory));
-
-  result = MakePWHistoryHeader(m_KeepPasswordHistory, m_MaxPasswordHistory, numEntries);
-  //reverse-sort the history entries to retain only the newest
-  std::sort(pwhl.begin(), pwhl.end(), newer());
-  // Now add all the existing history entries, up to a max of what the user wants to track
-  // This code is from CItemData::UpdatePasswordHistory()
-  PWHistList::iterator iter;
-  for (iter = pwhl.begin(); iter != pwhl.end() && numEntries > 0; iter++, numEntries--) {
-    StringX buffer;
-    Format(buffer, _T("%08x%04x%ls"),
-      static_cast<long>(iter->changetttdate), iter->password.length(),
-      iter->password.c_str());
-    result += buffer;
-  }
-  wxASSERT_MSG(numEntries ==0, wxT("Could not save existing password history entries"));
-  return result;
+  // Encode the list into the proper StringX format, trim if necessarry
+  pwhl.setMax(m_MaxPasswordHistory);
+  pwhl.setSaving(m_KeepPasswordHistory);
+  return pwhl;
 }
 
 Command* AddEditPropSheetDlg::NewEditEntryCommand()
 {
-  /*
-    TODO:
-    Even if there have been no changes and the user has pressed the Ok button,
-    the password history check and symbols check result to 'true'.
-  */
-
   const auto changes = GetChanges();
   const PWSprefs *prefs = PWSprefs::GetInstance();
 
@@ -2315,24 +2774,70 @@ Command* AddEditPropSheetDlg::NewEditEntryCommand()
   time_t t;
   time(&t);
   if (changes & Changes::Password) {
-    m_Item.UpdatePassword(tostringx(m_BasicPasswordTextCtrl->GetValue()));
-    m_Item.SetPMTime(t);
+    BaseEntryParms pl;
+    pl.InputType = m_Item.GetEntryType();
+    auto password = tostringx(m_BasicPasswordTextCtrl->GetValue());
+    if (m_Core.ParseAliasPassword(password, pl)) {
+      // Core validations:
+      const StringX selfGTU = L"[" + m_Item.GetGroup() + L":" + m_Item.GetTitle() + L":" + m_Item.GetUser() + L"]";
+      StringX errmess;
+      bool yesNoError;
+
+      bool isAliasValid = m_Core.CheckAliasValidity(pl, selfGTU, errmess, yesNoError);
+
+
+      if (!isAliasValid) {
+        long style = yesNoError ? (wxYES_NO | wxNO_DEFAULT) : wxOK;
+
+	      wxMessageDialog msg(this, errmess.c_str(), _("Alias Password Error"), style);
+
+        if (msg.ShowModal() == wxID_NO) {
+          m_BasicPasswordTextCtrl->SetFocus();
+          return nullptr;
+        }
+        // here if user decided to accept this as a regular password
+        m_Item.UpdatePassword(password);
+        m_Item.SetPMTime(t);
+      } else {
+        m_Item.SetAlias();
+        m_Item.SetBaseUUID(pl.base_uuid);
+      } 
+    } else { // password not an alias format
+        m_Item.SetNormal(); // in case we're changing an alias to a normal entry
+        m_Item.UpdatePassword(password);
+        m_Item.SetPMTime(t);
+    }
   }
   if ((changes & ~Changes::Attachment) != Changes::None) { // anything besides attachment
     m_Item.SetRMTime(t);
     m_Item.SetStatus(CItemData::ES_MODIFIED);
   }
   
+  // Setting a specific date
   if (changes & Changes::XTime) {
-    m_Item.SetXTime(m_tttExpirationTime);
+    m_Item.SetXTime(NormalizeExpDate(m_DatesTimesExpiryDateCtrl->GetValue()).GetTicks());
+    m_Item.SetXTimeInt(0);
   }
 
-  if (m_Recurring) {
-    if (changes & Changes::XTimeInt) {
+  // Setting by interval
+  // The date control should already be correct.  Only save the interval value if recurring is set
+  if (changes & Changes::XTimeInt) {
+    m_Item.SetXTime(NormalizeExpDate(m_DatesTimesExpiryDateCtrl->GetValue()).GetTicks());
+    if (m_Recurring) {
       m_Item.SetXTimeInt(m_ExpirationTimeInterval);
+    } else {
+      m_Item.SetXTimeInt(0);
     }
-  } else {
+  }
+
+  // Never expire, zeros are not written to the file
+  if (changes & Changes::XTimeNever) {
+    m_Item.SetXTime(0);
     m_Item.SetXTimeInt(0);
+  }
+
+  if (changes & Changes::TwoFactorKey) {
+    ApplyTwoFactorKey(m_Item);
   }
 
   auto commands = MultiCommands::Create(&m_Core);
@@ -2469,7 +2974,7 @@ Command* AddEditPropSheetDlg::NewEditEntryCommand()
     }
   }
 
-  if (changes != Changes::None) {
+  if (changes != Changes::None || m_AliasChange != AliasChanges::NoChange) {
     // All fields in m_item now reflect user's edits
     // Let's update the core's data
     uuid_array_t uuid;
@@ -2588,7 +3093,7 @@ void AddEditPropSheetDlg::OnOk(wxCommandEvent& WXUNUSED(evt))
 {
   if (Validate() && TransferDataFromWindow()) {
 
-    if (!ValidateBasicData() || !ValidatePasswordPolicy()) {
+    if (!ValidateBasicData() || !ValidateAdditionalData() || !ValidatePasswordPolicy()) {
       return; // don't exit dialog box (BR759)
     }
 
@@ -2612,6 +3117,8 @@ void AddEditPropSheetDlg::OnOk(wxCommandEvent& WXUNUSED(evt))
 
     if (command) {
       m_Core.Execute(command);
+    } else if (m_Type != SheetType::VIEW) {
+      return; // no command created for add/edit, don't exit dialog box.
     }
 
     EndModal(wxID_OK);
@@ -2630,54 +3137,21 @@ void AddEditPropSheetDlg::OnKeepHistoryClick(wxCommandEvent &)
    }
 }
 
-#if 0 // XXX Remove, as we did away with this checkbox!
-void AddEditPropSheetDlg::OnOverrideDCAClick(wxCommandEvent& WXUNUSED(evt))
-{
-  if (Validate() && TransferDataFromWindow()) {
-    m_DCAcomboBox->Enable(!m_useDefaultDCA);
-    if (m_useDefaultDCA) { // restore default
-      short dca = short(PWSprefs::GetInstance()->
-                        GetPref(PWSprefs::DoubleClickAction));
-      for (size_t i = 0; i < sizeof(dcaMapping)/sizeof(dcaMapping[0]); i++)
-        if (dca == dcaMapping[i].pv) {
-          m_DCAcomboBox->SetValue(dcaMapping[i].name);
-          break;
-        }
-      m_DCA = -1; // 'use default' value
-    }
-  }
-}
-#endif
-
 void AddEditPropSheetDlg::SetXTime(wxObject *src)
 {
   if (Validate() && TransferDataFromWindow()) {
     wxDateTime xdt;
     if (src == m_DatesTimesExpiryDateCtrl) { // expiration date changed, update interval
-      xdt = m_DatesTimesExpiryDateCtrl->GetValue();
-      xdt.SetHour(0);
-      xdt.SetMinute(1);
-      wxTimeSpan delta = xdt.Subtract(wxDateTime::Today());
-      m_ExpirationTimeInterval = delta.GetDays();
-      m_ExpirationTime = xdt.FormatDate();
+      xdt = m_DatesTimesExpiryDateCtrl->GetValue().GetDateOnly();
+      m_ExpirationTimeInterval = IntervalFromDate(xdt);
+
     } else if (src == m_DatesTimesExpiryTimeCtrl) { // expiration interval changed, update date
-      // If it's a non-recurring interval, just set XTime to
-      // now + interval, XTimeInt should be stored as zero
-      // (one-shot semantics)
-      // Otherwise, XTime += interval, keep XTimeInt
-        xdt = wxDateTime::Now();
-        xdt += wxDateSpan(0, 0, 0, m_ExpirationTimeInterval);
-        m_DatesTimesExpiryDateCtrl->SetValue(xdt);
-        m_ExpirationTime = xdt.FormatDate();
-      if (m_Recurring) {
-        wxString rstr;
-        rstr.Printf(_(" (every %d days)"), m_ExpirationTimeInterval);
-        m_ExpirationTime += rstr;
-      }
+      xdt = TodayPlusInterval(m_ExpirationTimeInterval);
+      m_DatesTimesExpiryDateCtrl->SetValue(xdt);
+
     } else {
       ASSERT(0);
     }
-    m_tttExpirationTime = xdt.GetTicks();
     Validate(); TransferDataToWindow();
   } // Validated & transferred from controls
 }
@@ -2688,23 +3162,22 @@ void AddEditPropSheetDlg::SetXTime(wxObject *src)
 
 void AddEditPropSheetDlg::OnExpRadiobuttonSelected( wxCommandEvent& evt )
 {
-  bool On = (evt.GetEventObject() == m_DatesTimesExpireOnCtrl);
-  bool Never = (evt.GetEventObject() == m_DatesTimesNeverExpireCtrl);
+  bool On = evt.GetEventObject() == m_DatesTimesExpireOnCtrl;
+  bool Never = evt.GetEventObject() == m_DatesTimesNeverExpireCtrl;
 
-  if (Never) {
-    m_ExpirationTime = _("Never");
-    m_CurrentExpirationTime.Clear();
-    m_tttExpirationTime = time_t(0);
-    m_ExpirationTimeInterval = 90;
-    wxDateTime xdt(wxDateTime::Now());
-    xdt += wxDateSpan(0, 0, 0, m_ExpirationTimeInterval);
+  // Sync the date with the interval so the user can see when it will expire
+  if (!On && !Never) {
+    wxDateTime xdt = TodayPlusInterval(m_DatesTimesExpiryTimeCtrl->GetValue());
     m_DatesTimesExpiryDateCtrl->SetValue(xdt);
-    m_Recurring = true;
-    TransferDataToWindow();
+    if (m_FirstInClick) {
+      m_DatesTimesRecurringExpiryCtrl->SetValue(true);
+      m_FirstInClick = false;
+    }
   }
 
   m_DatesTimesExpiryDateCtrl->Enable(On && !Never);
   m_DatesTimesExpiryTimeCtrl->Enable(!On && !Never);
+  m_DatesTimesStaticTextDays->Enable(!On && !Never);
   m_DatesTimesRecurringExpiryCtrl->Enable(!On && !Never);
 }
 
@@ -2761,6 +3234,9 @@ void AddEditPropSheetDlg::OnUpdateUI(wxUpdateUIEvent& event)
       break;
     case ID_BUTTON_ALIAS:
       event.Enable(!dbIsReadOnly || m_Item.IsAlias());
+      break;
+    case ID_BUTTON_SHOWHIDE:
+      m_BasicShowHideCtrl->SetLabel(m_IsPasswordHidden ? _("&Show") : _("&Hide"));
       break;
     case ID_BUTTON_GENERATE:
       event.Enable(!dbIsReadOnly && !m_Item.IsAlias()); // Do not generate password for alias entry
@@ -2828,7 +3304,10 @@ void AddEditPropSheetDlg::OnUpdateUI(wxUpdateUIEvent& event)
     case ID_STATICTEXT_DAYS:
     case ID_CHECKBOX_RECURRING:
     case ID_RADIOBUTTON_NEVER:
-      event.Enable(!dbIsReadOnly);
+      // Disable these if DB is read-only; otherwise they are controlled elsewhere.
+      if (dbIsReadOnly)
+        event.Enable(false);
+
       break;
 
     default:
@@ -3052,7 +3531,7 @@ void AddEditPropSheetDlg::OnClearPasswordHistory(wxCommandEvent& WXUNUSED(evt))
 {
   m_AdditionalPasswordHistoryGrid->ClearGrid();
   if (m_AdditionalMaxPasswordHistoryCtrl->TransferDataFromWindow() && m_KeepPasswordHistory && m_MaxPasswordHistory > 0) {
-    m_PasswordHistory = towxstring(MakePWHistoryHeader(m_KeepPasswordHistory, m_MaxPasswordHistory, 0));
+    m_PasswordHistory = towxstring(PWHistList::MakePWHistoryHeader(m_KeepPasswordHistory, m_MaxPasswordHistory));
   }
   else
     m_PasswordHistory.Empty();
@@ -3069,8 +3548,8 @@ void AddEditPropSheetDlg::OnEasyReadCBClick(wxCommandEvent& evt)
     // Check if pronounceable is also set - forbid both
     if (m_PasswordPolicyUsePronounceableCtrl->GetValue()) {
       m_PasswordPolicyUseEasyCtrl->SetValue(false);
-      wxMessageBox(_("Sorry, \"easy-to-read\" and \"pronounceable\" cannot be both selected"),
-                   _("Error"), wxOK|wxICON_ERROR, this);
+      wxMessageBox(_("\"Easy-to-read\" and \"pronounceable\" cannot be both selected."),
+                   _("Unsupported selection"), wxOK|wxICON_ERROR, this);
       return;
     }
 
@@ -3096,8 +3575,8 @@ void AddEditPropSheetDlg::OnPronouceableCBClick( wxCommandEvent& evt)
     // Check if ezread is also set - forbid both
     if (m_PasswordPolicyUseEasyCtrl->GetValue()) {
       m_PasswordPolicyUsePronounceableCtrl->SetValue(false);
-      wxMessageBox(_("Sorry, \"pronounceable\" and \"easy-to-read\" cannot be both selected"),
-                   _("Error"), wxOK|wxICON_ERROR, this);
+      wxMessageBox(_("\"Pronounceable\" and \"easy-to-read\" cannot be both selected."),
+                   _("Unsupported selection"), wxOK|wxICON_ERROR, this);
       return;
     }
     st_symbols = CPasswordCharPool::GetPronounceableSymbols();
@@ -3269,12 +3748,15 @@ bool AddEditPropSheetDlg::SyncAndQueryCancel(bool showDialog) {
   }
   else if (!(Validate() && TransferDataFromWindow()) || GetChanges() != Changes::None) {
     if (showDialog) {
-      auto res = wxMessageDialog(
+      wxMessageDialog dialog(
         nullptr,
-        _("One or more values have been changed. Are you sure you wish to cancel?"), wxEmptyString,
-        wxYES_NO | wxNO_DEFAULT | wxICON_EXCLAMATION  
-      ).ShowModal();
-      if (res == wxID_YES) {
+        _("One or more values have been changed.\nDo you want to discard the changes?"), wxEmptyString,
+        wxOK | wxCANCEL | wxCANCEL_DEFAULT | wxICON_EXCLAMATION
+      );
+      dialog.SetOKLabel(_("Discard"));
+
+      auto res = dialog.ShowModal();
+      if (res == wxID_OK) {
         return true;
       }
     }

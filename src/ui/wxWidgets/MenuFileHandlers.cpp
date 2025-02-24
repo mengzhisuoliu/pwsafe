@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -88,9 +88,11 @@ int PasswordSafeFrame::New()
   int rc, rc2;
 
   if (!m_core.IsReadOnly() && m_core.HasDBChanged()) {
-    wxString msg(_("Do you want to save changes to the password database: "));
+    wxString msg(_("Do you want to save changes to the password database:"));
+    msg += wxT("\n");
     msg += m_core.GetCurFile().c_str();
-    wxMessageDialog mbox(this, msg, GetTitle(), wxCANCEL | wxYES_NO | wxICON_QUESTION);
+    wxMessageDialog mbox(this, msg, "Save changes?", wxCANCEL | wxYES_NO | wxICON_QUESTION);
+    mbox.SetYesNoLabels(_("Save"), _("Discard"));
     rc = mbox.ShowModal();
     switch (rc) {
     case wxID_CANCEL:
@@ -137,13 +139,15 @@ int PasswordSafeFrame::New()
   m_RUEList.ClearEntries();
   wxGetApp().recentDatabases().AddFileToHistory(towxstring(cs_newfile));
   ResetFilters();
+  GetSearchBarPane().Hide(); // There is nothing to search for in an empty database
+  m_AuiManager.Update();
   // XXX TODO: Reset IdleLockTimer, as preference has reverted to default
   return PWScore::SUCCESS;
 }
 
 int PasswordSafeFrame::NewFile(StringX &fname)
 {
-  wxString cs_text(_("Please choose a name for the new database"));
+  wxString cs_text(_("Choose a name for the new database"));
 
   wxString cf(wxT("pwsafe")); // reasonable default for first time user
   wxString v3FileName = towxstring(PWSUtil::GetNewFileName(tostdstring(cf), DEFAULT_SUFFIX));
@@ -221,7 +225,7 @@ int PasswordSafeFrame::NewFile(StringX &fname)
     m_core.SetCurFile(fname);
 
     m_core.SetReadOnly(false); // new file can't be read-only...
-    m_core.NewFile(tostringx(dbox_pksetup->GetPassword()));
+    m_core.NewFile(dbox_pksetup->GetPassword());
 #ifdef notyet
     startLockCheckTimer();
 #endif
@@ -235,11 +239,13 @@ int PasswordSafeFrame::NewFile(StringX &fname)
 
 void PasswordSafeFrame::OnOpenClick(wxCommandEvent& WXUNUSED(evt))
 {
-  int rc = DoOpen(_("Please Choose a Database to Open:"));
+  int rc = DoOpen(_("Open Password Database"));
 
   if (rc == PWScore::SUCCESS) {
     m_core.ResumeOnDBNotification();
     CreateMenubar(); // Recreate the menu with updated list of most recently used DBs
+    UpdateSearchBarVisibility();
+    m_AuiManager.Update();
   }
 }
 
@@ -312,7 +318,7 @@ int PasswordSafeFrame::Save(SaveType savetype /* = SaveType::INVALID*/)
     m_tree->SaveGroupDisplayState();
   }
 
-  if (!m_core.IsDbOpen())
+  if (!m_core.IsDbFileSet())
     return SaveAs();
 
   switch (m_core.GetReadFileVersion()) {
@@ -390,7 +396,7 @@ int PasswordSafeFrame::Save(SaveType savetype /* = SaveType::INVALID*/)
 
   if (rc != PWScore::SUCCESS) { // Save failed!
     // Restore backup, if we have one
-    if (!bu_fname.empty() && m_core.IsDbOpen())
+    if (!bu_fname.empty() && m_core.IsDbFileSet())
       pws_os::RenameFile(bu_fname, m_core.GetCurFile().c_str());
     // Show user that we have a problem
     DisplayFileWriteError(rc, m_core.GetCurFile());
@@ -435,8 +441,8 @@ int PasswordSafeFrame::SaveAs()
   }
   wxString v3FileName = towxstring(PWSUtil::GetNewFileName(cf.c_str(), DEFAULT_SUFFIX));
 
-  wxString title = (!m_core.IsDbOpen()? _("Please choose a name for the current (Untitled) database:") :
-                                    _("Please choose a new name for the current database:"));
+  wxString title = (!m_core.IsDbFileSet()? _("Choose a name for the current (Untitled) database:") :
+                                    _("Choose a new name for the current database:"));
   wxFileName filename(v3FileName);
   wxString dir = filename.GetPath();
   if (dir.empty())
@@ -559,15 +565,14 @@ int PasswordSafeFrame::SaveIfChanged()
   // Otherwise it won't be saved unless something else has changed
   if ((m_bTSUpdated || m_core.HasDBChanged()) &&
       m_core.GetNumEntries() > 0) {
-    wxString prompt(_("Do you want to save changes to the password database"));
-    if (m_core.IsDbOpen()) {
-      prompt += wxT(": ");
+    wxString prompt(_("Do you want to save changes to the password database:"));
+    if (m_core.IsDbFileSet()) {
+      prompt += wxT("\n");
       prompt += m_core.GetCurFile().c_str();
     }
-    prompt += wxT("?");
-    wxMessageDialog dlg(this, prompt, GetTitle(),
-                        (wxICON_QUESTION | wxCANCEL |
-                         wxYES_NO | wxYES_DEFAULT));
+    wxMessageDialog dlg(this, prompt, "Save changes?",
+                        (wxICON_QUESTION | wxCANCEL | wxYES_NO));
+    dlg.SetYesNoLabels(_("Save"), _("Discard"));
     int rc = dlg.ShowModal();
     switch (rc) {
       case wxID_CANCEL:
@@ -602,7 +607,7 @@ struct ExportFullText
   }
   static wxString GetFailureMsgTitle() {return _("Export Text failed"); }
   static stringT  FileExtension() { return wxT("txt"); }
-  static wxString FileOpenPrompt() { return _("Please name the plaintext file"); }
+  static wxString FileOpenPrompt() { return _("Name the plaintext file"); }
   static wxString WildCards() {return _("Text files (*.txt)|*.txt|CSV files (*.csv)|*.csv|All files (*.*; *)|*.*;*"); }
   static int Write(PWScore& core, const StringX &filename, const CItemData::FieldBits &bsFields,
                           const stringT &subgroup_name, int subgroup_object,
@@ -645,7 +650,7 @@ struct ExportFullXml {
   }
   static wxString GetFailureMsgTitle() {return _("Export XML failed"); }
   static stringT  FileExtension() { return wxT("xml"); }
-  static wxString FileOpenPrompt() { return _("Please name the XML file"); }
+  static wxString FileOpenPrompt() { return _("Name the XML file"); }
   static wxString WildCards() {return _("XML files (*.xml)|*.xml|All files (*.*; *)|*.*;*"); }
   static int Write(PWScore& core, const StringX &filename, const CItemData::FieldBits &bsFields,
                           const stringT &subgroup_name, int subgroup_object,
@@ -710,7 +715,7 @@ void PasswordSafeFrame::OnExportVx(wxCommandEvent& evt)
     //SaveAs-type dialog box
     std::wstring OldFormatFileName = PWSUtil::GetNewFileName(m_core.GetCurFile().c_str(),
                                                              sfx);
-    const wxString cs_text = _("Please name the exported database");
+    const wxString cs_text = _("Name the exported database");
 
     //filename cannot have the path. Need to pass it separately
     wxFileName filename(towxstring(OldFormatFileName));
@@ -870,7 +875,7 @@ void PasswordSafeFrame::DoImportText(wxString filename)
     // Database is not unique to start with - tell user to validate it first
     wxMessageBox(wxString() << _("The database:") << wxT("\n\n") << m_core.GetCurFile() << wxT("\n\n")
                             << _("has duplicate entries with the same group/title/user combination.")
-                            << _("  Please fix by validating database."),
+                            << _("  Fix by validating database."),
                             _("Import Text failed"), wxOK | wxICON_ERROR, this);
     return;
   }
@@ -891,7 +896,7 @@ void PasswordSafeFrame::DoImportText(wxString filename)
 
   /* Create report as we go */
   CReport rpt;
-  rpt.StartReport(IDSC_RPTEXPORTTEXT, m_core.GetCurFile().c_str());
+  rpt.StartReport(IDSC_RPTIMPORTTEXT, m_core.GetCurFile().c_str());
   wxString header;
   header.Printf(_("%ls file being imported: %ls"), _("Text"), TxtFileName.c_str());
   rpt.WriteLine(tostdstring(header));
@@ -988,7 +993,7 @@ void PasswordSafeFrame::DoImportXML(wxString filename)
   GTUSet setGTU;
   if (!m_core.GetUniqueGTUValidated() && !m_core.InitialiseGTU(setGTU)) {
     // Database is not unique to start with - tell user to validate it first
-    wxMessageBox(wxString::Format( _("The database:\n\n%ls\n\nhas duplicate entries with the same group/title/user combination. Please fix by validating database."),
+    wxMessageBox(wxString::Format( _("The database:\n\n%ls\n\nhas duplicate entries with the same group/title/user combination. Fix by validating database."),
                                     m_core.GetCurFile().c_str()), _("Import XML failed"), wxOK | wxICON_ERROR, this);
     return;
   }
@@ -999,7 +1004,7 @@ void PasswordSafeFrame::DoImportXML(wxString filename)
 #if USE_XML_LIBRARY == MSXML || USE_XML_LIBRARY == XERCES
   if (!XSDFilename.FileExists()) {
     wxString filepath(XSDFilename.GetFullPath());
-    wxMessageBox(wxString::Format(_("Can't find XML Schema Definition file (%ls) in your PasswordSafe Application Directory.\nPlease copy it from your installation file, or re-install PasswordSafe."), filepath.c_str()),
+    wxMessageBox(wxString::Format(_("Can't find XML Schema Definition file (%ls) in your PasswordSafe Application Directory.\nCopy it from your installation file, or re-install PasswordSafe."), filepath.c_str()),
                           wxString(_("Missing XSD File - ")) + wxSTRINGIZE_T(USE_XML_LIBRARY) + _(" Build"), wxOK | wxICON_ERROR, this);
     return;
   }
@@ -1138,7 +1143,7 @@ void PasswordSafeFrame::DoImportKeePass(wxString filename)
   wxString KPsFileName;
   
   if(filename.IsEmpty()) {
-    wxFileDialog fd(this, _("Please Choose a KeePass Text File to Import"),
+    wxFileDialog fd(this, _("Import a KeePass Text File"),
                   wxEmptyString, filename,
                   _("Text files (*.txt)|*.txt|CSV files (*.csv)|*.csv|All files (*.*; *)|*.*;*"),
                   (wxFD_OPEN | wxFD_FILE_MUST_EXIST | wxFD_PREVIEW));
@@ -1307,7 +1312,7 @@ void PasswordSafeFrame::OnSynchronize(wxCommandEvent& evt)
 void PasswordSafeFrame::DoSynchronize(wxString filename)
 {
   // disable in read-only mode or empty
-  wxCHECK_RET(!m_core.IsReadOnly() && m_core.IsDbOpen() && m_core.GetNumEntries() != 0,
+  wxCHECK_RET(!m_core.IsReadOnly() && m_core.IsDbFileSet() && m_core.GetNumEntries() != 0,
                 wxT("Synchronize menu enabled for empty or read-only database!"));
 
   SyncWizard wiz(this, &m_core, filename);

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -84,7 +84,7 @@
 // * Windows 32                                 *
 // **********************************************
 #if defined(_WIN32)
-  #if defined(x86) || defined(_x86) || defined(_X86) || defined(_X86_) || defined(_M_IX86) || defined(_M_X64)
+  #if defined(x86) || defined(_x86) || defined(_X86) || defined(_X86_) || defined(_M_IX86) || defined(_M_X64) || defined(_M_ARM64)
     #define PWS_LITTLE_ENDIAN
   #endif
 // **********************************************
@@ -119,6 +119,14 @@
 #if defined(__i386__) || defined(__amd64__)
 #define PWS_LITTLE_ENDIAN
 #endif
+// **********************************************
+// * OpenBSD                                    *
+// **********************************************
+#elif defined(__OpenBSD__)
+#if defined(__i386__) || defined(__amd64__)
+#define PWS_LITTLE_ENDIAN
+#endif
+//
 // **********************************************
 // * Add other platforms here...                *
 // **********************************************

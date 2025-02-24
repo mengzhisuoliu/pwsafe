@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -64,6 +64,8 @@ const CPWToolBarX::GuiRecord CPWToolBarX::MainGuiInfo[] =
     {L"~", ID_SEPARATOR, 0, 0, 0},
     {L"copypassword", ID_MENUITEM_COPYPASSWORD, IDB_COPYPASSWORD_CLASSIC, IDB_COPYPASSWORD_NEW, IDB_COPYPASSWORD_NEW_D},
     {L"copyuser", ID_MENUITEM_COPYUSERNAME, IDB_COPYUSER_CLASSIC, IDB_COPYUSER_NEW, IDB_COPYUSER_NEW_D},
+    {L"copyauthcode", ID_MENUITEM_COPY2FAAUTHCODE, IDB_COPY2FAAUTHCODE_CLASSIC, IDB_COPY2FAAUTHCODE_NEW, IDB_COPY2FAAUTHCODE_NEW_D},
+    {L"viewauthcode", ID_MENUITEM_VIEW2FAAUTHCODE, IDB_VIEW2FAAUTHCODE_CLASSIC, IDB_VIEW2FAAUTHCODE_NEW, IDB_VIEW2FAAUTHCODE_NEW_D},
     {L"copynotes", ID_MENUITEM_COPYNOTESFLD, IDB_COPYNOTES_CLASSIC, IDB_COPYNOTES_NEW, IDB_COPYNOTES_NEW_D},
     {L"clearclipboard", ID_MENUITEM_CLEARCLIPBOARD, IDB_CLEARCLIPBOARD_CLASSIC, IDB_CLEARCLIPBOARD_NEW, IDB_CLEARCLIPBOARD_NEW_D},
     {L"~", ID_SEPARATOR, 0, 0, 0},
@@ -282,12 +284,12 @@ void CPWToolBarX::Init(const int NumBits, bool bRefresh)
 
   // from https://docs.microsoft.com/en-us/windows/win32/hidpi/high-dpi-desktop-application-development-on-windows
   int dpi = WinUtil::GetDPI(); // can't use ForWindow(m_Hwnd) as we don't have a valid one when this is called.
-  int dpiScaledX = MulDiv(origX, dpi, 96);
-  int dpiScaledY = MulDiv(origY, dpi, 96);
+  int dpiScaledX = MulDiv(origX, dpi, WinUtil::defDPI);
+  int dpiScaledY = MulDiv(origY, dpi, WinUtil::defDPI);
 
   int btnX = 24, btnY = 22; // original toolbar button dimensions
-  int dpiScaledBtnX = MulDiv(btnX, dpi, 96);
-  int dpiScaledBtnY = MulDiv(btnY, dpi, 96);
+  int dpiScaledBtnX = MulDiv(btnX, dpi, WinUtil::defDPI);
+  int dpiScaledBtnY = MulDiv(btnY, dpi, WinUtil::defDPI);
 
   GetToolBarCtrl().SetButtonSize(CSize(dpiScaledBtnX, dpiScaledBtnY));
 

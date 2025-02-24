@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -63,6 +63,10 @@ protected:
   bool m_bSortAscending;
   bool m_bClearPWHistory;
 
+  CSecString m_twofactorkey;
+  CSecEditExtn m_ex_twofactorkey;
+  bool m_isTwoFactorKeyHidden;
+
   // Overrides
   // ClassWizard generate virtual function overrides
   //{{AFX_VIRTUAL(CAddEdit_Additional)
@@ -92,6 +96,9 @@ protected:
   afx_msg void OnHistListClick(NMHDR *pNotifyStruct, LRESULT *pLResult);
   afx_msg void OnPWHCopyAll();
   afx_msg void OnClearPWHist();
+
+  afx_msg void OnShowTwoFactorKey();
+  afx_msg void OnTwoFactorKeyChanged();
   //}}AFX_MSG
 
   DECLARE_MESSAGE_MAP()
@@ -101,7 +108,10 @@ private:
                                         LPARAM lParamSort);
   void SetupDCAComboBoxes(CComboBox *pcbox, bool isShift);
   int CheckKeyboardShortcut();
- 
+
+  void ShowTwoFactorKey();
+  void HideTwoFactorKey();
+
   CTBMStatic m_Help1, m_Help2;
 
   COLORREF m_autotype_cfOldColour, m_runcmd_cfOldColour;

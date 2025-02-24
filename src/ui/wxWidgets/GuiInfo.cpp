@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -53,8 +53,18 @@ void CollectExpandedNodes(TreeCtrl* tree, wxTreeItemId root, wxArrayString& expa
   }
 }
 
+//
+// NOTE: The Save/Restore Tree/Grid view routines are called multiple times for
+// a single lock/restore operation.  When locking, the final call to Save*ViewInfo
+// happens after the info has been cleared.  For now, we test for that condition.
+// In the future, this is an opportunity for improvement.
+//
 void GuiInfo::SaveTreeViewInfo(TreeCtrl* tree)
 {
+  //has the tree been cleared?
+  if (tree->HasItems() == 0)
+    return;
+
   //save the first visible item
   wxTreeItemId treeItem = tree->GetFirstVisibleItem();
   if (treeItem.IsOk() && treeItem != tree->GetRootItem()) {

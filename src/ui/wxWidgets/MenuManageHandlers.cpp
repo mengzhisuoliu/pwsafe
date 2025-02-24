@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -114,7 +114,7 @@ void PasswordSafeFrame::DoPreferencesClick()
     if (m_sysTray && prefs->GetPref(PWSprefs::UseSystemTray))
         m_sysTray->ShowIcon();
 
-    if (m_core.IsDbOpen() && !m_core.IsReadOnly() &&
+    if (m_core.IsDbFileSet() && !m_core.IsReadOnly() &&
         m_core.GetReadFileVersion() >= PWSfile::V30) { // older versions don't have prefs
       if (sxOldDBPrefsString != sxNewDBPrefsString ||
           m_core.GetHashIters() != window->GetHashItersValue()) {
@@ -144,10 +144,10 @@ void PasswordSafeFrame::OnBackupSafe(wxCommandEvent& WXUNUSED(evt))
   PWSprefs *prefs = PWSprefs::GetInstance();
   const wxFileName currbackup(towxstring(prefs->GetPref(PWSprefs::CurrentBackup)));
 
-  const wxString title(_("Please Choose a Name for this Backup:"));
+  const wxString title(_("Choose a Name for this Backup:"));
 
   wxString dir;
-  if (!m_core.IsDbOpen())
+  if (!m_core.IsDbFileSet())
     dir = towxstring(PWSdirs::GetSafeDir());
   else {
     wxFileName::SplitPath(towxstring(m_core.GetCurFile()), &dir, nullptr, nullptr);
@@ -196,7 +196,7 @@ void PasswordSafeFrame::DoRestoreSafe()
   const wxFileName currbackup(towxstring(PWSprefs::GetInstance()->GetPref(PWSprefs::CurrentBackup)));
 
   wxString dir;
-  if (!m_core.IsDbOpen())
+  if (!m_core.IsDbFileSet())
     dir = towxstring(PWSdirs::GetSafeDir());
   else {
     wxFileName::SplitPath(towxstring(m_core.GetCurFile()), &dir, nullptr, nullptr);
@@ -204,7 +204,7 @@ void PasswordSafeFrame::DoRestoreSafe()
   }
 
   //returns empty string if user cancels
-  wxString wxbf = wxFileSelector(_("Please Choose a Backup to Restore:"),
+  wxString wxbf = wxFileSelector(_("Backup File"),
                                  dir,
                                  currbackup.GetFullName(),
                                  wxT("bak"),
@@ -214,7 +214,7 @@ void PasswordSafeFrame::DoRestoreSafe()
   if (wxbf.empty())
     return;
 
-  DestroyWrapper<SafeCombinationPromptDlg> pwdprompt(this, m_core, wxbf, false);
+  DestroyWrapper<SafeCombinationPromptDlg> pwdprompt(this, m_core, wxbf);
   if (pwdprompt.Get()->ShowModal() == wxID_OK) {
     const StringX passkey = pwdprompt.Get()->GetPassword();
     // unlock the file we're leaving
@@ -410,7 +410,7 @@ bool PasswordSafeFrame::ChangeMode(bool promptUser)
   } else if (promptUser) { // R-O -> R/W
     // Taken from GetAndCheckPassword.
     // We don't want all the other processing that GetAndCheckPassword does
-    int rc = ShowModalAndGetResult<SafeCombinationPromptDlg>(this, m_core, towxstring(m_core.GetCurFile()), false);
+    int rc = ShowModalAndGetResult<SafeCombinationPromptDlg>(this, m_core, towxstring(m_core.GetCurFile()));
 
     if(rc != wxID_OK)
       return false;
@@ -438,7 +438,7 @@ bool PasswordSafeFrame::ChangeMode(bool promptUser)
             // We did get the lock but the DB has been changed
             // Note: PWScore has already freed the lock
             // The user must close and re-open it in R/W mode
-            cs_msg = _("The database has been changed since you opened it in R-O mode, so it is not possible to switch to R/W mode.\n\nPlease close the database and re-open it in R/W mode.");
+            cs_msg = _("The database has been changed since you opened it in R-O mode, so it is not possible to switch to R/W mode.\n\nClose the database and re-open it in R/W mode.");
             break;
 
           case PWScore::CANT_GET_LOCK:

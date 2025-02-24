@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -49,7 +49,7 @@
 #include <type_traits> // for static_assert
 
 // These column names must match the field names defined in core_st.cpp
-static const TCHAR *EXPORTHEADER  = _T("Group/Title\tUsername\tPassword\tURL\tAutoType\tCreated Time\tPassword Modified Time\tLast Access Time\tPassword Expiry Date\tPassword Expiry Interval\tRecord Modified Time\tPassword Policy\tPassword Policy Name\tHistory\tRun Command\tDCA\tShift+DCA\te-mail\tProtected\tSymbols\tKeyboard Shortcut\tNotes");
+static const TCHAR *EXPORTHEADER  = _T("Group/Title\tUsername\tPassword\tTwo Factor Key\tTOTP Config\tTOTP Start Time\tTOTP Time Step\tTOTP Length\tURL\tAutoType\tCreated Time\tPassword Modified Time\tLast Access Time\tPassword Expiry Date\tPassword Expiry Interval\tRecord Modified Time\tPassword Policy\tPassword Policy Name\tHistory\tRun Command\tDCA\tShift+DCA\te-mail\tProtected\tSymbols\tKeyboard Shortcut\tNotes");
 static const TCHAR *KPEXPORTHEADER  = _T("Password Groups\tGroup Tree\tAccount\tLogin Name\tPassword\tWeb Site\tComments\tUUID\tIcon\tCreation Time\tLast Access\tLast Modification\tExpires\tAttachment Description\tAttachment");
 static const TCHAR *KPIMPORTEDPREFIX = _T("ImportedKeePass");
 
@@ -146,6 +146,9 @@ StringX PWScore::BuildHeader(const CItemData::FieldBits &bsFields, const bool bI
   if (bittest(bsFields, CItemData::PASSWORD, bIncluded)) {
     hdr += CItemData::FieldName(CItemData::PASSWORD) + TAB;
   }
+  if (bittest(bsFields, CItemData::TWOFACTORKEY, bIncluded)) {
+    hdr += CItemData::FieldName(CItemData::TWOFACTORKEY) + TAB;
+  }
   if (bittest(bsFields, CItemData::URL, bIncluded)) {
     hdr += CItemData::FieldName(CItemData::URL) + TAB;
   }
@@ -214,6 +217,7 @@ StringX PWScore::BuildHeader(const CItemData::FieldBits &bsFields, const bool bI
 }
 
 struct TextRecordWriter {
+  TextRecordWriter(const TextRecordWriter&) = default;
   TextRecordWriter(const stringT &subgroup_name,
           const int &subgroup_object, const int &subgroup_function,
           const CItemData::FieldBits &bsFields,
@@ -248,7 +252,7 @@ struct TextRecordWriter {
         m_pcore->UpdateWizard(sx_exported.c_str());
 
         CUTF8Conv conv; // can't make a member, as no copy c'tor!
-        const unsigned char *utf8;
+        const unsigned char *utf8 = nullptr;
         size_t utf8Len;
         if (conv.ToUTF8(line, utf8, utf8Len)) {
           m_ofs.write(reinterpret_cast<const char *>(utf8), utf8Len);
@@ -347,6 +351,7 @@ int PWScore::WritePlaintextFile(const StringX &filename,
 }
 
 struct XMLRecordWriter {
+  XMLRecordWriter(const XMLRecordWriter&) = default;
   XMLRecordWriter(const stringT &subgroup_name,
                   const int subgroup_object, const int subgroup_function,
                   const CItemData::FieldBits &bsFields,
@@ -825,7 +830,7 @@ int PWScore::ImportXMLFile(const stringT &ImportedPrefix, const stringT &strXMLF
     return XML_FAILED_IMPORT;
   }
 
-  return ((numRenamed + numPWHErrors) == 0) ? SUCCESS : OK_WITH_ERRORS;
+  return ((numRenamed + numPWHErrors + numSkipped + numRenamedPolicies) == 0) ? SUCCESS : OK_WITH_ERRORS;
 }
 #endif
 
@@ -918,6 +923,11 @@ int PWScore::ImportPlaintextFile(const StringX &ImportedPrefix,
     altPair(L"user",USER),
     defaultPairs(PASSWORD),
     altPair(L"passwd", PASSWORD),
+    defaultPairs(TWOFACTORKEY),
+    defaultPairs(TOTPCONFIG),
+    defaultPairs(TOTPSTARTTIME),
+    defaultPairs(TOTPTIMESTEP),
+    defaultPairs(TOTPLENGTH),
     defaultPairs(URL),
     defaultPairs(AUTOTYPE),
     defaultPairs(CTIME),
@@ -1251,15 +1261,26 @@ int PWScore::ImportPlaintextFile(const StringX &ImportedPrefix,
     ci_temp.Clear();
     ci_temp.CreateUUID();
 
-    auto set_field_if_in_row = [&ci_temp, &row_has_column, &tokens, &columns](CItem::FieldType ft)
+    auto set_field_if_in_row = [&ci_temp, &row_has_column, &tokens, &columns](CItem::FieldType ft, bool allow_empty = true)
     {
-      if (row_has_column(ft))
-        ci_temp.SetFieldValue(ft, tokens[columns[ft]].c_str());
+      if (row_has_column(ft) && (allow_empty || !tokens[columns[ft]].empty()))
+          ci_temp.SetFieldValue(ft, tokens[columns[ft]].c_str());
     };
 
     set_field_if_in_row(CItem::USER);
     set_field_if_in_row(CItem::PASSWORD);
 
+    // If import text file has non-empty TOTP key, TOTP is active.
+    // Otherwise it is not active and all TOTP import is skipped.
+    bool is_two_factor_key_present = row_has_column(CItem::TWOFACTORKEY) && !tokens[columns[CItem::TWOFACTORKEY]].empty();
+    if (is_two_factor_key_present) {
+      set_field_if_in_row(CItem::TWOFACTORKEY);
+      ASSERT(ci_temp.IsTotpActive());
+      set_field_if_in_row(CItem::TOTPCONFIG, false);
+      set_field_if_in_row(CItem::TOTPSTARTTIME, false);
+      set_field_if_in_row(CItem::TOTPTIMESTEP, false);
+      set_field_if_in_row(CItem::TOTPLENGTH, false);
+    }
 
     // Handle legacy group/title concatenation
     if (row_has_column(CItem::GROUPTITLE)) {
@@ -1981,7 +2002,6 @@ int PWScore::ImportKeePassV1CSVFile(const StringX &filename,
   cStringXStream iss;
   unsigned char buffer[IMPORT_BUFFER_SIZE + 1];
   bool bError(false);
-  size_t total(0);
   while(!feof(fs)) {
     size_t count = fread(buffer, 1, IMPORT_BUFFER_SIZE, fs);
     if (ferror(fs)) {
@@ -1990,7 +2010,6 @@ int PWScore::ImportKeePassV1CSVFile(const StringX &filename,
     }
     buffer[count] = '\0';
     iss << buffer;
-    total += count;
   }
 
   // Close the file
@@ -2392,7 +2411,7 @@ stringT PWScore::GetXMLPWPolicies(const OrderedItemList *pOIL)
     return retval;
 
   std::vector<StringX> vPWPolicies;
-  const bool bSubset = pOIL->size() != GetNumEntries();
+  const bool bSubset = pOIL != nullptr && pOIL->size() != GetNumEntries();
   bool bNamedPasswordPolicies = !bSubset;
   PSWDPolicyMapCIter iter;
 

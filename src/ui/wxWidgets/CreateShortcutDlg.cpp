@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -173,7 +173,7 @@ void CreateShortcutDlg::CreateControls()
 {
   //(*Initialize(ShortcutsDialogDial
   auto BoxSizer1 = new wxBoxSizer(wxVERTICAL);
-  auto StaticText1 = new wxStaticText(this, wxID_ANY, _("Please enter the shortcut properties to the selected base entry."), wxDefaultPosition, wxDefaultSize, 0, _T("wxID_ANY"));
+  auto StaticText1 = new wxStaticText(this, wxID_ANY, _("Enter the shortcut properties to the selected base entry."), wxDefaultPosition, wxDefaultSize, 0, _T("wxID_ANY"));
   BoxSizer1->Add(StaticText1, 0, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 10);
 
   auto StaticBoxSizer1 = new wxStaticBoxSizer(wxHORIZONTAL, this, _("Shortcut"));
@@ -274,6 +274,15 @@ void CreateShortcutDlg::OnOk(wxCommandEvent& WXUNUSED(event))
     if (!valid)
       return;
 
+    auto *commands = MultiCommands::Create(&m_Core);
+    auto shortcutGroup = tostringx(m_ShortcutGroup);
+
+    if (!shortcutGroup.empty() && m_Core.IsEmptyGroup(shortcutGroup)) { // The group is no longer empty if a new item is added
+      commands->Add(
+        DBEmptyGroupsCommand::Create(&m_Core, shortcutGroup, DBEmptyGroupsCommand::EG_DELETE)
+      );
+    }
+
     CItemData shortcut;
     shortcut.SetShortcut();
     shortcut.CreateUUID();
@@ -295,8 +304,12 @@ void CreateShortcutDlg::OnOk(wxCommandEvent& WXUNUSED(event))
     shortcut.SetXTime(time_t(0));
     shortcut.SetStatus(CItemData::ES_ADDED);
 
-    m_Core.Execute(
+    commands->Add(
       AddEntryCommand::Create(&m_Core, shortcut, m_Base->GetUUID())
+    );
+
+    m_Core.Execute(
+      commands
     );
   }
   EndModal(wxID_OK);

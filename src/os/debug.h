@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -34,7 +34,7 @@ namespace pws_os {
       maxnum    - maximum hex characters dumped per line
   */
   void HexDump(unsigned char *pmemory, const int &length,
-               const stringT &cs_prefix = _S(""), const int &maxnum = 16);
+               const stringT &cs_prefix = {}, const int &maxnum = 16);
 
   /**
      This disables the ability to create a coredump and to attach a debugger to the process
@@ -42,5 +42,19 @@ namespace pws_os {
   */
   bool DisableDumpAttach();
 }
+
+#if defined(_DEBUG) || defined(DEBUG)
+
+#define PWSTRACE(lpszFormat,...) pws_os::Trace(lpszFormat,__VA_ARGS__)
+
+#else
+
+#ifdef _WIN32
+#define PWSTRACE(lpszFormat,...) __noop
+#else
+#define PWSTRACE(lpszFormat,...) do {} while(0)
+#endif
+
+#endif
 
 #endif /* _OSDEBUG_H */

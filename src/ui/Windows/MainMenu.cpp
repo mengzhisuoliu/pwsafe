@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -885,6 +885,13 @@ void DboxMain::CustomiseMenu(CMenu *pPopupMenu, const UINT uiMenuID,
       pPopupMenu->AppendMenu(MF_ENABLED | MF_STRING,
                              ID_MENUITEM_PASSWORDSUBSET, tc_dummy);
 
+      if (!pci->IsFieldValueEmpty(CItemData::TWOFACTORKEY, pbci)) {
+        pPopupMenu->AppendMenu(MF_ENABLED | MF_STRING,
+                               ID_MENUITEM_COPY2FAAUTHCODE, tc_dummy);
+        pPopupMenu->AppendMenu(MF_ENABLED | MF_STRING,
+                               ID_MENUITEM_VIEW2FAAUTHCODE, tc_dummy);
+      }
+
       if (!pci->IsFieldValueEmpty(CItemData::NOTES, pbci))
         pPopupMenu->AppendMenu(MF_ENABLED | MF_STRING,
                                ID_MENUITEM_COPYNOTESFLD, tc_dummy);
@@ -1573,6 +1580,11 @@ void DboxMain::OnContextMenu(CWnd * /* pWnd */, CPoint screen)
 
     if (pci->IsFieldValueEmpty(CItemData::USER, pbci))
       pPopup->RemoveMenu(ID_MENUITEM_COPYUSERNAME, MF_BYCOMMAND);
+
+    if (pci->IsFieldValueEmpty(CItemData::TWOFACTORKEY, pbci)) {
+      pPopup->RemoveMenu(ID_MENUITEM_COPY2FAAUTHCODE, MF_BYCOMMAND);
+      pPopup->RemoveMenu(ID_MENUITEM_VIEW2FAAUTHCODE, MF_BYCOMMAND);
+    }
 
     if (pci->IsFieldValueEmpty(CItemData::NOTES, pbci))
       pPopup->RemoveMenu(ID_MENUITEM_COPYNOTESFLD, MF_BYCOMMAND);

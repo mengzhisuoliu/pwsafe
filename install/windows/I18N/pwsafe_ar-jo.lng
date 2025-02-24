@@ -5,7 +5,7 @@
 ; first edit : Karlo Van der Gucht
 ;---------------------------------------------------
 ; Copyright 2004, David Lacy Kusters (dkusters@yahoo.com)
-; Copyright 2005-2023 Rony Shapiro <ronys@pwsafe.org>
+; Copyright 2005-2025 Rony Shapiro <ronys@pwsafe.org>
 ; 2009 extended by Karlo Van der Gucht for multiple language use
 ; 2010 extended by Karlo Van der Gucht Danish language
 ; This script may be redistributed and/or modified under the Artistic
@@ -137,6 +137,10 @@ LangString HUNGARIAN_SUPPORT ${LANG_Arabic} "الهنغارية"
 ; SLOVENIAN_SUPPORT "Slovenian"
 LangString SLOVENIAN_SUPPORT ${LANG_Arabic} "السلوفينية"
 LangString ARABIC_SUPPORT ${LANG_Arabic} "اللغة العربية"
+; PORTUGUESEBR_SUPPORT "Portuguese (Brazil)"
+LangString PORTUGUESEBR_SUPPORT ${LANG_Arabic} "البرتغالية (البرازيل)"
+LangString LATVIAN_SUPPORT ${LANG_Arabic} "اللاتفية"
+
 
 ; LANG_PROGRAM "Program Language"
 LangString LANG_PROGRAM ${LANG_Arabic} "لغة البرنامج"
@@ -158,6 +162,19 @@ LangString Icon_description_Uninstall ${LANG_Arabic} "الغاء تثبيت ال
 
 ; LangString Icon_description_Help  "Password Safe Help"
 LangString Icon_description_Help ${LANG_Arabic} "المساعدة حول البرنامج"
+
+; Screen Capture Protection texts:
+; LangString SCRCAP_PROTECTION "Screen capture protection"
+LangString SCRCAP_PROTECTION ${LANG_Arabic} "حماية التقاط الشاشة"
+
+; LangString SORRY_CANNOT_DISABLE_SCRCAP  "An error occurred disabling screen capture protection. Screen capture protection is not disabled."
+LangString SORRY_CANNOT_DISABLE_SCRCAP ${LANG_Arabic} "حدث خطأ أثناء تعطيل حماية التقاط الشاشة. لم يتم تعطيل حماية التقاط الشاشة."
+
+; LangString SORRY_CANNOT_ENABLE_SCRCAP "An error occurred setting screen capture protection to default (enabled)."
+LangString SORRY_CANNOT_ENABLE_SCRCAP ${LANG_Arabic} "حدث خطأ أثناء إعداد حماية التقاط الشاشة إلى الوضع الافتراضي (ممكن)."
+
+; LangString DESC_ScrCapProtection "Enables screen capture protection."
+LangString DESC_ScrCapProtection ${LANG_Arabic} "تمكين حماية التقاط الشاشة."
 
 ;=================================================================
 ; End of pwsafe_xx.lng

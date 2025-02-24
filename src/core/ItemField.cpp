@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -8,7 +8,6 @@
 /// \file ItemField.cpp
 //-----------------------------------------------------------------------------
 
-#include <math.h>
 
 #include "ItemField.h"
 #include "Util.h"
@@ -19,7 +18,7 @@
 //Returns the number of bytes of 8 byte blocks needed to store 'size' bytes
 size_t CItemField::GetBlockSize(size_t size) const
 {
-  return static_cast<size_t>(ceil(static_cast<double>(size) / 8.0)) * 8;
+  return  ((size / 8) + ((size % 8 != 0) ? 1 : 0)) * 8;
 }
 
 CItemField::CItemField(const CItemField &that)

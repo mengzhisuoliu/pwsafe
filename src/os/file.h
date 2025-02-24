@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -33,7 +33,7 @@ namespace pws_os {
 
   extern std::FILE *FOpen(const stringT &filename, const TCHAR *mode);
   extern int FClose(std::FILE *fd, const bool &bIsWrite);
-  extern ulong64 fileLength(std::FILE *fp);
+  extern size_t fileLength(std::FILE *fp);
   extern bool GetFileTimes(const stringT &filename,
       time_t &ctime, time_t &mtime, time_t &atime);
   extern bool SetFileTimes(const stringT &filename,

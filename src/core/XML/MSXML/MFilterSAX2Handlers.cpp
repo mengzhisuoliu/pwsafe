@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -397,6 +397,12 @@ HRESULT STDMETHODCALLTYPE MFilterSAX2ContentHandler::endElement (
     m_type = DFTYPE_MAIN;
     cur_filterentry->mtype = PWSMatch::MT_PASSWORD;
     cur_filterentry->ftype = FT_PASSWORD;
+  }
+
+  else if (_tcscmp(szCurElement, CItemData::GetXmlFieldNameW(CItemData::TWOFACTORKEY).c_str()) == 0) {
+    m_type = DFTYPE_MAIN;
+    cur_filterentry->mtype = PWSMatch::MT_STRING;
+    cur_filterentry->ftype = FT_TWOFACTORKEY;
   }
 
   else if (_tcscmp(szCurElement, _T("notes")) == 0) {

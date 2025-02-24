@@ -400,7 +400,22 @@
 #define IDB_BROWSEALT_CLASSIC           562
 #define IDB_BROWSEALT_NEW               563
 #define IDB_BROWSEALT_NEW_D             564
-
+#define IDB_SCRCAP_FIRST                565
+#define IDB_SCRCAP_BASE_EMPTY           565
+#define IDB_SCRCAP_ALLOWED              566
+#define IDB_SCRCAP_ALLOWED_IMPLICIT     567
+#define IDB_SCRCAP_ALLOWED_FORCED1      568
+#define IDB_SCRCAP_ALLOWED_FORCED2      569
+#define IDB_SCRCAP_EXCLUDED             570
+#define IDB_SCRCAP_STATE_ERROR          571
+#define IDB_SCRCAP_LAST                 571
+#define IDB_COPY2FAAUTHCODE_CLASSIC     580
+#define IDB_COPY2FAAUTHCODE_NEW         581
+#define IDB_COPY2FAAUTHCODE_NEW_D       582
+#define IDB_VIEW2FAAUTHCODE_CLASSIC     583
+#define IDB_VIEW2FAAUTHCODE_NEW         584
+#define IDB_VIEW2FAAUTHCODE_NEW_D       585
+#define IDD_DISPLAY_AUTH_CODE           600
 #define IDC_APPVERSION                  1000
 #define IDC_VERSION                     1001
 #define IDC_APPVERSION2                 1002
@@ -751,6 +766,7 @@
 #define IDC_STATIC_RWSTATUS             1424
 #define IDC_COPYPASSWORD                1425
 #define IDC_DEFPWHIDESYSTRAY            1426
+#define IDC_TWOFACTORCODE               1426
 #define IDC_ADVANCED_RESET              1427
 #define IDC_ENTRY                       1428
 #define IDC_DATABASE                    1430
@@ -904,17 +920,26 @@
 #define IDC_STATIC_MINTRANSPARENCY      1595
 #define IDC_TESTTRANSPARENCY            1596
 #define IDC_PS_TITLE                    1599
-#define IDC_CHECK1                      1600
 #define IDC_EXCLUDE_FROM_CB_HIST        1601
 #define IDC_STATIC_PASSWORD2            1602
+#define IDC_EXCLUDE_FROM_SCR_CAP        1603
+#define IDC_EXCLUDE_FROM_SCR_CAP_HELP   1604
+#define IDC_TIMEOUT_ENABLE_CONTROLS     1610
+#define IDC_SCRCAP_STATE_CTL            1611
+#define IDC_TWOFACTORKEY                1612
+#define IDC_SHOW_2FAKEY                 1613
+#define IDC_AC_STATIC_ENTRYNAME         1614
+#define IDC_AC_BUTTON_COPY_TWOFACTORCODE 1615
+#define IDC_AC_STATIC_TWOFACTORCODE     1616
+#define IDC_STATIC_TWOFACTORCODE        1622
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        565
+#define _APS_NEXT_RESOURCE_VALUE        573
 #define _APS_NEXT_COMMAND_VALUE         30001
-#define _APS_NEXT_CONTROL_VALUE         1603
+#define _APS_NEXT_CONTROL_VALUE         1623
 #define _APS_NEXT_SYMED_VALUE           557
 #endif
 #endif

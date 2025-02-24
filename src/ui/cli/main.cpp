@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -64,13 +64,13 @@ static char *basename(const char *path)
 int SaveCore(PWScore &core, const UserArgs &);
 
 // These are the new operations. Each returns the code to exit with
-static int CreateNewSafe(PWScore &core, const StringX &filename, const StringX &passphrase);
+static int CreateNewSafe(PWScore &core, const StringX &filename, const StringX &passphrase, bool);
 static int Sync(PWScore &core, const UserArgs &ua);
 static int Merge(PWScore &core, const UserArgs &ua);
 
 //-----------------------------------------------------------------
 
-using pre_op_fn = function<int(PWScore &, const StringX &, const StringX &)>;
+using pre_op_fn = function<int(PWScore &, const StringX &, const StringX &, bool)>;
 using main_op_fn = function<int(PWScore &, const UserArgs &)>;
 using post_op_fn = function<int(PWScore &, const UserArgs &)>;
 
@@ -97,7 +97,8 @@ const map<UserArgs::OpType, pws_op> pws_ops = {
 
 static void usage(char *pname)
 {
-  std::string usage_str = R"usagestring(
+  std::wstring s_pname = Utf82wstring(pname);
+  std::wstring usage_str = LR"usagestring(
 Usage: %PROGNAME% safe --imp[=file] --text|--xml
 
        %PROGNAME% safe --exp[=file] --text|--xml
@@ -109,6 +110,7 @@ Usage: %PROGNAME% safe --imp[=file] --text|--xml
        %PROGNAME% safe --search=<text> [--ignore-case]
                       [--subset=<Field><OP><string>[/iI] [--fields=f1,f2,..]
                       [--delete | --update=Field1=Value1,Field2=Value2,.. | --print[=field1,field2...] ] [--yes]
+                      [--generate-totp]
 
        %PROGNAME% safe --diff=<other-safe>  [ --subset=<Field><OP><Value>[/iI] ]
                       [--fields=f1,f2,..] [--unified | --context | --sidebyside]
@@ -126,28 +128,104 @@ Usage: %PROGNAME% safe --imp[=file] --text|--xml
                          ! => negation
                         a trailing /i => case insensitive, /I => case sensitive
 
+       Note that --passphrase <passphrase> and --passphrase2 <2nd passphrase> may be used to skip the prompt
+       for the master passphrase(s). However, this should be avoided if possible for security reasons.
+
        Valid field names are:
+       %FIELDNAMES%
+
+       Note:
+        ° Field names and values that contain whitespace characters must be quoted (e.g. "Created Time").
+        ° Times are expected in Universal Time Coordinated (UTC) format ("YYYY/MM/DD hh:mm:ss").
+        ° The current time can also be referenced using the keyword "now".
+
+       Examples:
+
+       1) Creating a database
+
+            %PROGNAME% pwsafe.psafe3 --create
+
+          This creates the empty database "pwsafe.psafe3".
+
+       2) Adding an entry
+
+          To add an entry to a database, the title is mandatory. All other fields are optional.
+          If no password is specified, a password will be generated for the entry.
+
+            %PROGNAME% pwsafe.psafe3 --add=Title="Login"
+
+          The simplest way to add a new entry to a database, specifying the minimum required fields.
+
+            %PROGNAME% pwsafe.psafe3 --add=Title="Bank Account",Username="John Doe",Password=SecretPassword,"Created Time"="2020/01/01 12:00:00"
+
+          This adds an entry with the title "Bank Account" to the database "pwsafe.psafe3" which does not belong to any group.
+
+            %PROGNAME% pwsafe.psafe3 --add=Group=Email,Title=Yahoo,Username="Richard Miles",Password=SecretPassword,"Created Time"=now
+
+          Similar to the previous example, except that the entry is added to the "Email" group. If the group does not exist, it is created.
+
+       3) Updating an entry
+
+          In this example, an entry containing "Richard Miles" is searched for.
+
+            %PROGNAME% pwsafe.psafe3 --search="Richard Miles" --update=Title=Google
+
+          If such an entry is found, its title is updated after the user has confirmed this.
+
+       4) Searching for an entry
+
+          The search option is very helpful for referring to specific entries. It can search the entire database for a specific textual occurrence,
+          as well as content in specific fields of entries to further narrow the search. This is particularly helpful when multiple entries have the
+          same text, such as the same title.
+
+            %PROGNAME% pwsafe.psafe3 --search="Login" --print=Title,Username
+
+          This would output the title and username of the entries found that contain "Login".
+
+            %PROGNAME% pwsafe.psafe3 --search="Login" --subset=Username=="John Doe" --print=Title,Username
+
+          This search command would limit the results to all entries containing the occurrence "Login" and the username "John Doe".
+
+       5) Deleting an entry
+
+            %PROGNAME% pwsafe.psafe3 --search="Richard Miles" --delete
+
+          This will delete the entry that matches the search criteria after the deletion is confirmed.
+
+            %PROGNAME% pwsafe.psafe3 --search="John Doe" --delete --yes
+
+          This deletes the found entry without asking for confirmation.
 )usagestring";
 
-	const std::string placeholder{"%PROGNAME%"};
-    const auto pname_len = strlen(pname);
-
-	for( auto itr = usage_str.find(placeholder); itr != std::string::npos; itr = usage_str.find(placeholder, itr + pname_len)) {
-			usage_str.replace(itr, placeholder.length(), pname);
+  std::wstringstream ss_fieldnames;
+  constexpr auto names_per_line = 5;
+  auto nnames = 0;
+  const auto fieldnames = GetValidFieldNames();
+  for (const stringT &name: fieldnames) {
+    if (nnames)
+    ss_fieldnames << L", ";
+    if ( nnames++ % names_per_line == 0 )
+      ss_fieldnames << L"\n\t\t";
+    ss_fieldnames << name;
 	}
 
+  std::wstring s_fieldnames = ss_fieldnames.str();
+  const std::wstring s_fn_placeholder{L"%FIELDNAMES%"};
+  auto pos = usage_str.find(s_fn_placeholder);
+  if (pos != std::string::npos) {
+    usage_str.replace(pos, s_fn_placeholder.length(), s_fieldnames);
+  }
 
-  cerr << pname << " version " << CLI_MAJOR_VERSION << "." << CLI_MINOR_VERSION << "." << CLI_REVISION << endl;
-	cerr << usage_str;
+  const std::wstring s_pn_placeholder{L"%PROGNAME%"};
+  const auto pname_len = s_pname.length();
 
-	constexpr auto names_per_line = 5;
-	auto nnames = 0;
-	const auto fieldnames = GetValidFieldNames();
-	for (const stringT &name: fieldnames) {
-		if ( nnames++ % names_per_line == 0 ) cerr << "\n\t\t";
-		wcerr << name << ", ";
-	}
-	cerr << '\n';
+  for(auto itr = usage_str.find(s_pn_placeholder); itr != std::string::npos; itr = usage_str.find(s_pn_placeholder, itr + pname_len)) {
+    usage_str.replace(itr, s_pn_placeholder.length(), s_pname);
+  }
+
+  wcerr << s_pname << L" version " << CLI_MAJOR_VERSION << L"." << CLI_MINOR_VERSION << L"." << CLI_REVISION << endl;
+  wcerr << usage_str;
+  wcerr << '\n';
 }
 
 #if 0
@@ -202,10 +280,12 @@ bool parseArgs(int argc, char *argv[], UserArgs &ua)
                   {"dry-run",     no_argument,        0, 'n'},
                   {"synchronize", no_argument,        0, 'z'},
                   //  {"synch",       no_argument,        0, 'z'},
-                    {"merge",       no_argument,        0, 'm'},
+                    {"merge",       required_argument,  0, 'm'},
                     {"colwidth",    required_argument,  0, 'w'},
                     {"passphrase",  required_argument,  0, 'P'},
                     {"passphrase2", required_argument,  0, 'Q'},
+                    {"generate-totp", no_argument,      0, 'G'},
+                    {"verbose",     no_argument,        0, 'V'},
                     {0, 0, 0, 0}
           };
 
@@ -213,7 +293,7 @@ bool parseArgs(int argc, char *argv[], UserArgs &ua)
           static_assert(no_dup_short_option(long_options), "Short option used twice");
 #endif
 
-          int c = getopt_long(argc - 1, argv + 1, "i::e::txcs:b:f:oa:u:pryd:gjknz:m:P:Q:",
+          int c = getopt_long(argc - 1, argv + 1, "i::e::txcs:b:f:oa:u:pryd:gjknz:m:P:Q:GV",
               long_options, &option_index);
           if (c == -1)
               break;
@@ -341,6 +421,14 @@ bool parseArgs(int argc, char *argv[], UserArgs &ua)
               Utf82StringX(optarg, ua.passphrase[1]);
               break;
 
+          case 'G':
+              ua.SearchAction = UserArgs::GenerateTotpCode;
+              break;
+
+          case 'V':
+              ua.verbosity_level++;
+              break;
+
           default:
               wcerr << L"Unknown option: " << static_cast<wchar_t>(c) << endl;
               return false;
@@ -384,6 +472,12 @@ int main(int argc, char *argv[])
     return 1;
 #endif // _WIN32
 
+  // prevent ptrace and creation of core dumps in release build
+  if (!pws_os::DisableDumpAttach()) {
+    wcerr << L"Failed to block ptrace and core dumps" << endl;
+    exit(1);
+  }
+
   UserArgs ua;
   if (!parseArgs(argc, argv, ua)) {
     usage(basename(argv[0]));
@@ -392,10 +486,13 @@ int main(int argc, char *argv[])
 
   int status = 1;
   auto itr = pws_ops.find(ua.Operation);
+
   if (itr != pws_ops.end()) {
+    const bool openReadOnly = ua.Operation == UserArgs::Export || ua.Operation == UserArgs::Diff ||
+                              (ua.Operation == UserArgs::Search && (ua.SearchAction == UserArgs::Print || ua.SearchAction == UserArgs::GenerateTotpCode));
     PWScore core;
     try {
-      status = itr->second.pre_op(core, ua.safe, ua.passphrase[0]);
+      status = itr->second.pre_op(core, ua.safe, ua.passphrase[0], openReadOnly);
       if ( status == PWScore::SUCCESS) {
         status = itr->second.main_op(core, ua);
         if (status == PWScore::SUCCESS)
@@ -407,14 +504,15 @@ int main(int argc, char *argv[])
       status = PWScore::FAILURE;
     }
 
-    core.UnlockFile(ua.safe.c_str());
+    if (!openReadOnly) // unlock if locked by pre_op
+      core.UnlockFile(ua.safe.c_str());
     return status;
   }
   wcerr << L"No main operation specified" << endl;
   return status;
 }
 
-static int CreateNewSafe(PWScore &core, const StringX &filename, const StringX &passphrase)
+static int CreateNewSafe(PWScore &core, const StringX &filename, const StringX &passphrase, bool)
 {
     if ( pws_os::FileExists(filename.c_str()) ) {
         wcerr << filename << L" - already exists" << endl;

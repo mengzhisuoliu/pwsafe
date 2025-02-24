@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -184,7 +184,7 @@ void ImportTextDlg::CreateControls()
   wxBoxSizer* dlgSizer = new wxBoxSizer(wxVERTICAL);
   dlgSizer->AddSpacer(TopMargin);  //add a margin at the top
 
-  wxString strPrompt(_("Select a text file to import:"));
+  wxString strPrompt(_("Import text file:"));
   wxString  wildCards(_("Text files (*.txt)|*.txt|CSV files (*.csv)|*.csv|All files (*.*; *)|*.*; *"));
 
   dlgSizer->Add(new wxStaticText(this, wxID_ANY, strPrompt), Left);

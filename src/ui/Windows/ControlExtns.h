@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -209,6 +209,9 @@ public:
   CSecEditExtn();
   CSecEditExtn(std::vector<st_context_menu> vmenu_items);
   virtual ~CSecEditExtn();
+
+  virtual BOOL PreTranslateMessage(MSG* pMsg) override;
+
 
   // Overriding virtuals doesn't work, due to defective
   // implementation of DDX_Text. Grr.

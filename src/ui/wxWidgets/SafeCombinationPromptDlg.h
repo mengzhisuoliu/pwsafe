@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -50,7 +50,7 @@ class wxTimer;
 #endif
 #define ID_YUBIBTN 10229
 #define ID_YUBISTATUS 10230
-#define SYMBOL_SAFECOMBINATIONPROMPTDLG_TITLE _("Enter Safe Combination")
+#define SYMBOL_SAFECOMBINATIONPROMPTDLG_TITLE _("Unlock Password Database")
 #define SYMBOL_SAFECOMBINATIONPROMPTDLG_IDNAME ID_SAFECOMBINATIONPROMPTDLG
 #define SYMBOL_SAFECOMBINATIONPROMPTDLG_SIZE wxSize(400, 300)
 #define SYMBOL_SAFECOMBINATIONPROMPTDLG_POSITION wxDefaultPosition
@@ -71,7 +71,7 @@ class SafeCombinationPromptDlg : public wxDialog
 
 
 public:
-  static SafeCombinationPromptDlg* Create(wxWindow *parent, PWScore &core, const wxString &fname, const bool allowExit = true,
+  static SafeCombinationPromptDlg* Create(wxWindow *parent, PWScore &core, const wxString &fname,
                          wxWindowID id = SYMBOL_SAFECOMBINATIONPROMPTDLG_IDNAME, const wxString& caption = SYMBOL_SAFECOMBINATIONPROMPTDLG_TITLE, const wxPoint& pos = SYMBOL_SAFECOMBINATIONPROMPTDLG_POSITION, const wxSize& size = SYMBOL_SAFECOMBINATIONPROMPTDLG_SIZE, long style = SYMBOL_SAFECOMBINATIONPROMPTDLG_STYLE );
    /// Destructor
 ~SafeCombinationPromptDlg();
@@ -79,7 +79,7 @@ public:
   StringX GetPassword() const {return m_password;}
 protected:
   /// Constructors
-  SafeCombinationPromptDlg(wxWindow *parent, PWScore &core, const wxString &fname, const bool allowExit,
+  SafeCombinationPromptDlg(wxWindow *parent, PWScore &core, const wxString &fname,
     wxWindowID id, const wxString& caption, const wxPoint& pos, const wxSize& size, long style);
 
   /// Creates the controls and sizers
@@ -98,19 +98,13 @@ protected:
   /// wxEVT_COMMAND_BUTTON_CLICKED event handler for wxID_OK
   void OnOkClick( wxCommandEvent& event );
 
+  /// wxEVT_ACTIVATE  event handler
+  void OnActivate( wxActivateEvent& event );
+
   /// wxEVT_COMMAND_BUTTON_CLICKED event handler for wxID_CANCEL
   void OnCancelClick( wxCommandEvent& event );
 
-  /// wxEVT_COMMAND_BUTTON_CLICKED event handler for wxID_EXIT
-  void OnExitClick( wxCommandEvent& event );
-
-  /// wxEVT_COMMAND_CHECKBOX_CLICKED event handler for ID_READONLY
-  void OnReadonlyClick( wxCommandEvent& event );
-  
 ////@begin SafeCombinationPromptDlg member function declarations
-
-  /// Retrieves bitmap resources
-  wxBitmap GetBitmapResource( const wxString& name );
 
   /// Retrieves icon resources
   wxIcon GetIconResource( const wxString& name );
@@ -120,23 +114,21 @@ protected:
   static bool ShowToolTips();
 
 ////@begin SafeCombinationPromptDlg member variables
+  wxTextCtrl* m_textCtrlFilename = nullptr;
   SafeCombinationCtrl* m_scctrl = nullptr;
 ////@end SafeCombinationPromptDlg member variables
   PWScore &m_core;
   wxString m_filename;
   StringX  m_password;
-  unsigned m_tries;
-  bool m_readOnly;
-  bool m_allowExit;
+  bool m_DialogActivated = false;
   
 #ifndef NO_YUBI
   wxBitmapButton* m_YubiBtn = nullptr;
   wxStaticText* m_yubiStatusCtrl = nullptr;
-  wxTimer* m_pollingTimer = nullptr; // for Yubi, but can't go into mixin :-(
 #endif
 
-  void ProcessPhrase();
-  void UpdateReadOnlyCheckbox(wxCheckBox *checkBox);
+  bool ProcessPhrase();
+  void EllipsizeFilePathname();
 };
 
 #endif // _SAFECOMBINATIONPROMPTDLG_H_

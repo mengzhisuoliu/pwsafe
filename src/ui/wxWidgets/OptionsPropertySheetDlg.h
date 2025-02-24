@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -257,7 +257,7 @@ private:
   wxComboBox*     m_Misc_ShiftDoubleClickActionCB = nullptr;
   wxTextCtrl*     m_Misc_DefaultUsernameTXT = nullptr;
   wxStaticText*   m_Misc_DefaultUsernameLBL = nullptr;
-  wxString        m_Misc_OtherBrowserLocationparams;
+  wxString        m_Misc_OtherBrowserParams;
 
   // Tab: "Password History"
   wxPanel*        m_PasswordHistory_Panel = nullptr;

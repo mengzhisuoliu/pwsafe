@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -50,7 +50,7 @@ class wxTimer;
 #endif
 #define ID_YUBIBTN 10229
 #define ID_YUBISTATUS 10230
-#define SYMBOL_SAFECOMBINATIONSETUPDLG_TITLE _("Safe Combination Setup")
+#define SYMBOL_SAFECOMBINATIONSETUPDLG_TITLE _("Set Master Password")
 #define SYMBOL_SAFECOMBINATIONSETUPDLG_IDNAME ID_SAFECOMBINATIONSETUPDLG
 #define SYMBOL_SAFECOMBINATIONSETUPDLG_SIZE wxSize(400, 300)
 #define SYMBOL_SAFECOMBINATIONSETUPDLG_POSITION wxDefaultPosition
@@ -74,7 +74,7 @@ public:
 
   /// Destructor
   ~SafeCombinationSetupDlg();
-  wxString GetPassword() const {return m_password;}
+  StringX GetPassword() const {return m_password;}
 protected:
   /// Constructors
   SafeCombinationSetupDlg(wxWindow *parent, wxWindowID id, const wxString& caption, const wxPoint& pos, const wxSize& size, long style);
@@ -116,12 +116,10 @@ protected:
 #endif
 ////@end SafeCombinationSetupDlg member variables
  private:
-
-#ifndef NO_YUBI
-  wxTimer* m_pollingTimer = nullptr; // for Yubi, but can't go into mixin :-(
-#endif
-  wxString m_password;
-  wxString m_verify;
+  SafeCombinationCtrl* m_PasswordEntryCtrl = nullptr;
+  SafeCombinationCtrl* m_VerifyEntryCtrl = nullptr;
+  StringX m_password;
+  StringX m_verify;
 };
 
 #endif // _SAFECOMBINATIONSETUPDLG_H_

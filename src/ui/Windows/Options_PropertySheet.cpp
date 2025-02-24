@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -258,6 +258,8 @@ void COptions_PropertySheet::SetupInitialValues()
   m_OPTMD.HashIters = GetMainDlg()->GetHashIters();
   m_OPTMD.CopyPswdBrowseURL =
       prefs->GetPref(PWSprefs::CopyPasswordWhenBrowseToURL) ? TRUE : FALSE;
+  m_OPTMD.ExcludeFromScreenCapture =
+      prefs->GetPref(PWSprefs::ExcludeFromScreenCapture) ? TRUE : FALSE;
   // Preferences min/max values
   m_OPTMD.prefminIdleTimeout = (short)prefs->GetPrefMinVal(PWSprefs::IdleTimeout);
   m_OPTMD.prefmaxIdleTimeout = (short)prefs->GetPrefMaxVal(PWSprefs::IdleTimeout);
@@ -394,6 +396,8 @@ void COptions_PropertySheet::UpdateCopyPreferences()
                  m_OPTMD.LockOnWindowLock == TRUE, true);
   prefs->SetPref(PWSprefs::CopyPasswordWhenBrowseToURL,
                  m_OPTMD.CopyPswdBrowseURL == TRUE, true);
+  prefs->SetPref(PWSprefs::ExcludeFromScreenCapture,
+                 m_OPTMD.ExcludeFromScreenCapture == TRUE, true);
 
   prefs->SetPref(PWSprefs::UseSystemTray,
                  m_OPTMD.UseSystemTray == TRUE, true);

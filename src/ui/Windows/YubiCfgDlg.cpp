@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -10,7 +10,6 @@
 //
 
 #include <afxdisp.h>
-#include <afxctl.h>
 #include <afxwin.h>
 #include <iomanip>
 #include <sstream>
@@ -21,6 +20,7 @@
 #include "DboxMain.h"
 #include "YubiCfgDlg.h"
 #include "PKBaseDlg.h" // for *YubiExists
+#include "resource3.h"
 
 #include "os/windows/yubi/YkLib.h"
 #include "core/StringX.h"
@@ -32,7 +32,7 @@ using namespace std;
 
 // CYubiCfgDlg dialog
 
-static const wchar_t PSSWDCHAR = L'*';
+static constexpr wchar_t PSSWDCHAR = L'*';
 
 CYubiCfgDlg::CYubiCfgDlg(CWnd* pParent, PWScore &core)
   : CPWDialog(CYubiCfgDlg::IDD, pParent),
@@ -70,7 +70,7 @@ static StringX BinSK2HexStr(const unsigned char *sk, int len)
   os << setw(2);
   os << setfill(L'0');
   for (int i = 0; i < len; i++) {
-    os << hex << setw(2) << int(sk[i]);
+    os << hex << setw(2) << static_cast<int>(sk[i]);
     if (i != len - 1)
       os << " ";
   }
@@ -84,7 +84,7 @@ static void HexStr2BinSK(const StringX &str, unsigned char *sk, int len)
   int i = 0;
   int b;
   while ((is >> b ) && i < len) {
-    sk[i++] = (unsigned char)b;
+    sk[i++] = static_cast<unsigned char>(b);
   }
 }
 
@@ -119,7 +119,7 @@ void CYubiCfgDlg::ReadYubiSN()
   rc = yk.closeKey();
   return; // good return
  fail:
-  m_YubiSN = L"Error reading YubiKey";
+  m_YubiSN = CString(MAKEINTRESOURCE(IDS_YUBI_READ_FAIL));
 }
 
 int CYubiCfgDlg::WriteYubiSK(const unsigned char *yubi_sk_bin)
@@ -199,8 +199,9 @@ void CYubiCfgDlg::OnBnClickedOk()
 {
   // Was OK button, now "Set Yubikey" so we don't close
   // after processing.
-  UpdateData(TRUE);  
-  StringX skStr = LPCWSTR(m_YubiSK);
+  UpdateData(TRUE);
+  StringX skStr = static_cast<LPCWSTR>(m_YubiSK);
+  int status;
   
   GetDlgItem(IDC_YUBI_API)->ShowWindow(SW_HIDE); // in case of retry
   if (!skStr.empty()) {
@@ -215,15 +216,20 @@ void CYubiCfgDlg::OnBnClickedOk()
 
       // 3. Write DB ASAP!
       int rc = m_core.WriteCurFile();
-      if (rc == PWScore::SUCCESS)
+      if (rc == PWScore::SUCCESS) {
         GetMainDlg()->BlockLogoffShutdown(false);
-
-      trashMemory(yubi_sk_bin, YUBI_SK_LEN);
+        trashMemory(yubi_sk_bin, YUBI_SK_LEN);
+        status = IDS_YUBI_SET_SUCCESS;
+      } else {
+        status = IDS_YUBI_SET_DB_SAVE_FAILED; // what can the user do?
+      } // rc == PWScore::SUCCESS
     } else {
-      const CString err = L"Failed to update YubiKey";
-      GetDlgItem(IDC_YUBI_API)->ShowWindow(SW_SHOW);
-      GetDlgItem(IDC_YUBI_API)->SetWindowText(err);
-    }
+      status = IDS_YUBI_SET_FAILED;
+
+    } // WriteYubiSK
+    const CString statusStr(MAKEINTRESOURCE(status));
+    GetDlgItem(IDC_YUBI_API)->ShowWindow(SW_SHOW);
+    GetDlgItem(IDC_YUBI_API)->SetWindowText(statusStr);
   }
 }
 
@@ -256,9 +262,8 @@ void CYubiCfgDlg::OnTimer(UINT_PTR)
 
 void CYubiCfgDlg::OnHelp() 
 {
-  CString cs_HelpTopic;
-  cs_HelpTopic = app.GetHelpFileName() + L"::/html/manage_menu.html#yubikey";
-  HtmlHelp(DWORD_PTR((LPCWSTR)cs_HelpTopic), HH_DISPLAY_TOPIC);
+  CString cs_HelpTopic = app.GetHelpFileName() + L"::/html/manage_menu.html#yubikey";
+  HtmlHelp(DWORD_PTR(static_cast<LPCWSTR>(cs_HelpTopic)), HH_DISPLAY_TOPIC);
 }
 
 void CYubiCfgDlg::ShowSK()

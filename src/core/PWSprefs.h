@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -31,7 +31,7 @@
 
 #include "StringX.h"
 #include "Proxy.h"
-#include "os/typedefs.h"
+#include "../os/typedefs.h"
 
 #include <vector>
 
@@ -134,6 +134,8 @@ public:
     DragAndDropShowRoot,
     ShowAliasSelection,
     ExcludeFromClipboardHistory, // Windows only
+    FindToolBarActive, // To persist Find toolbar's visibility
+    ExcludeFromScreenCapture,
     NumBoolPrefs};
 
   enum IntPrefs {Column1Width, Column2Width, Column3Width, Column4Width,
@@ -156,6 +158,7 @@ public:
     LastUsedKeyboard, VKeyboardFontName, VKSampleText, AltNotesEditor,
     LanguageFile, DefaultSymbols, NotesFont, NotesSampleText, AutotypeTaskDelays,
     AddEditFont, AddEditSampleText, AltNotesEditorCmdLineParms, TreeSort,
+    ActiveFilterName,
     NumStringPrefs};
 
   // for DoubleClickAction and ShiftDoubleClickAction
@@ -223,8 +226,8 @@ public:
   void SetPrefRect(long top, long bottom, long left, long right);
   void GetPrefPSSRect(long &top, long &bottom, long &left, long &right) const;
   void SetPrefPSSRect(long top, long bottom, long left, long right);
-  unsigned int GetMRUList(stringT *MRUFiles) const;
-  int SetMRUList(const stringT *MRUFiles, int n, int max_MRU);
+  unsigned int GetMRUList(std::vector<stringT> &MRUFiles) const;
+  unsigned int SetMRUList(const std::vector<stringT> &MRUFiles, int max_MRU);
   PWPolicy GetDefaultPolicy(const bool bUseCopy = false) const;
   void SetDefaultPolicy(const PWPolicy &pol, const bool bUseCopy = false);
 
@@ -324,7 +327,7 @@ private:
   unsigned int m_intCopyValues[NumIntPrefs];
   StringX m_stringCopyValues[NumStringPrefs];
 
-  stringT *m_MRUitems;
+  std::vector<stringT> m_MRUitems;
   stringT m_PrefLayout;
   std::vector<st_prefShortcut> m_vShortcuts;
 

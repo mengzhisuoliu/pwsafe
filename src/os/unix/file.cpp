@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -22,7 +22,7 @@
 
 #include <dirent.h>
 #include <fnmatch.h>
-#ifndef __FreeBSD__
+#if !defined(__FreeBSD__) && !defined(__OpenBSD__)
 #include <malloc.h> // for free
 #endif
 
@@ -387,7 +387,7 @@ int pws_os::FClose(std::FILE *fd, const bool &bIsWrite)
   return 0;
 }
 
-ulong64 pws_os::fileLength(std::FILE *fp)
+size_t pws_os::fileLength(std::FILE *fp)
 {
   if (fp == nullptr)
     return -1;
@@ -397,7 +397,7 @@ ulong64 pws_os::fileLength(std::FILE *fp)
   struct stat st;
   if (fstat(fd, &st) == -1)
     return -1;
-  return ulong64(st.st_size);
+  return size_t(st.st_size);
 }
 
 bool pws_os::GetFileTimes(const stringT &filename,

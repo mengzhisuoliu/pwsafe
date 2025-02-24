@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -17,9 +17,9 @@
 #include "crypto/Fish.h"
 #include "PwsPlatform.h"
 
-#include "os/debug.h"
-#include "os/typedefs.h"
-#include "os/mem.h"
+#include "../os/debug.h"
+#include "../os/typedefs.h"
+#include "../os/mem.h"
 
 #include <sstream>
 #include <stdarg.h>
@@ -259,7 +259,18 @@ inline void byteswap(unsigned char * begin, unsigned char * end) {
     }
 }
 
+template<class T>
+inline void byteswap(T& v) {
+  unsigned char* a = reinterpret_cast<unsigned char*>(&v);
+  byteswap(a, a + sizeof(v) - 1);
+}
+
+inline size_t roundUp(size_t x, const size_t m) {
+    return ((x + m - 1) / m) * m;
+}
+
 namespace PWSUtil {
+
   // namespace of common utility functions
 
   // For Windows implementation, hide Unicode abstraction,
@@ -269,7 +280,7 @@ namespace PWSUtil {
   // Time conversion result formats:
   enum TMC {TMC_ASC_UNKNOWN, TMC_ASC_NULL, TMC_EXPORT_IMPORT, TMC_XML,
             TMC_LOCALE, TMC_LOCALE_DATE_ONLY};
-  StringX ConvertToDateTimeString(const time_t &t, TMC result_format);
+  StringX ConvertToDateTimeString(const time_t &t, TMC result_format, bool convert_epoch = false, bool utc_time = false);
   stringT GetNewFileName(const stringT &oldfilename, const stringT &newExtn);
   extern const TCHAR *UNKNOWN_ASC_TIME_STR, *UNKNOWN_XML_TIME_STR;
   void GetTimeStamp(stringT &sTimeStamp, const bool bShort = false);
@@ -281,7 +292,8 @@ namespace PWSUtil {
                      const StringX &value, CUTF8Conv &utf8conv,
                      const char *tabs = "\t\t");
   std::string GetXMLTime(int indent, const char *name,
-                         time_t t, CUTF8Conv &utf8conv);
+                         time_t t, CUTF8Conv &utf8conv,
+                         bool convert_epoch = false, bool utc_time = false);
 
   StringX DeDupString(StringX &in_string);
   stringT GetSafeXMLString(const StringX &sxInString);
@@ -318,6 +330,23 @@ bool FindNoCase( const StringX& src, const StringX& dest);
 
 
 std::string toutf8(const std::wstring &w);
+
+template<class T>
+StringX ToStringX(T v) {
+  oStringXStream os;
+  os << v;
+  return os.str();
+}
+
+template<class T>
+StringX IntegralToStringX(T v) {
+  // For consistency for all integers, and specifically forcing single byte
+  // integrals (char, uint8_t, etc.) to be converted as integers to string
+  // rather than as single characters. Good for values between LLONG_MIN to
+  // LLONG_MAX, inclusive. Beyond that range, use ToStringX directly with
+  // appropriate type.
+  return ToStringX(static_cast<long long>(v));
+}
 
 #endif /* __UTIL_H */
 //-----------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -506,20 +506,20 @@ bool pwFiltersIntegerDlg::IsValid(bool showMessage) const
     }
     else if (fnum1 == m_max) {
       if (showMessage) {
-        wxMessageBox(_("Please correct numeric values."), _("Maximum value for first number and 'Between' rule"), wxOK|wxICON_ERROR);
+        wxMessageBox(_("Correct numeric values."), _("Maximum value for first number and 'Between' rule"), wxOK|wxICON_ERROR);
       }
       return false;
     }
   }
   else if(isRuleSelected(idx, PWSMatch::MR_LT) && (fnum1 == m_min)) {
     if (showMessage) {
-      wxMessageBox(_("Please correct numeric values."), _("Number is set to the minimum value. 'Less than' is not allowed."), wxOK|wxICON_ERROR);
+      wxMessageBox(_("Correct numeric values."), _("Number is set to the minimum value. 'Less than' is not allowed."), wxOK|wxICON_ERROR);
     }
     return false;
   }
   else if(isRuleSelected(idx, PWSMatch::MR_GT) && (fnum1 == m_max)) {
     if (showMessage) {
-      wxMessageBox(_("Please correct numeric values."), _("Number is set to the maximum value. 'Greater than' is not allowed."), wxOK|wxICON_ERROR);
+      wxMessageBox(_("Correct numeric values."), _("Number is set to the maximum value. 'Greater than' is not allowed."), wxOK|wxICON_ERROR);
     }
     return false;
   }

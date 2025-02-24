@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -44,7 +44,7 @@ DbSelectionPanel::DbSelectionPanel(wxWindow* parent,
                                     PWScore* core,
                                     unsigned rowsep,
                                     int buttonConfirmationId,
-                                    const wxString filename) : wxPanel(parent), m_pollingTimer(nullptr),
+                                    const wxString filename) : wxPanel(parent),
                                                                 m_filepicker(nullptr),
                                                                 m_sc(nullptr),
                                                                 m_bAutoValidate(autoValidate),
@@ -77,7 +77,7 @@ DbSelectionPanel::DbSelectionPanel(wxWindow* parent,
              wxFileDirPickerEventHandler(DbSelectionPanel::OnFilePicked),
              nullptr, this);
 
-  panelSizer->Add(new wxStaticText(this, wxID_ANY, _("Safe Combination:")), borderFlags);
+  panelSizer->Add(new wxStaticText(this, wxID_ANY, _("Master Password:")), borderFlags);
   panelSizer->AddSpacer(RowSeparation);
   
   m_sc = new SafeCombinationCtrl(this);
@@ -96,15 +96,8 @@ DbSelectionPanel::DbSelectionPanel(wxWindow* parent,
   panelSizer->Add(horizontalSizer, borderFlags.Expand());
   panelSizer->AddSpacer(5);
 
-  auto showCombinationCheckBox = new wxCheckBox(this, wxID_ANY, _("Show Combination"), wxDefaultPosition, wxDefaultSize, 0 );
-  showCombinationCheckBox->SetValue(false);
-  showCombinationCheckBox->Bind(wxEVT_CHECKBOX, [&](wxCommandEvent& event) {m_sc->SecureTextfield(!event.IsChecked());});
-
-  panelSizer->Add(showCombinationCheckBox, borderFlags.Expand());
-  panelSizer->AddSpacer(RowSeparation);
-
 #ifndef NO_YUBI
-  auto yubiStatusCtrl = new wxStaticText(this, ID_YUBISTATUS, _("Please insert your YubiKey"),
+  auto yubiStatusCtrl = new wxStaticText(this, ID_YUBISTATUS, _("Insert YubiKey"),
     wxDefaultPosition, wxDefaultSize, 0 );
   panelSizer->Add(yubiStatusCtrl, borderFlags.Expand());
 #endif
@@ -112,19 +105,12 @@ DbSelectionPanel::DbSelectionPanel(wxWindow* parent,
   SetSizerAndFit(panelSizer);
 
 #ifndef NO_YUBI
-  SetupMixin(FindWindow(ID_YUBIBTN), FindWindow(ID_YUBISTATUS));
+  SetupMixin(this, FindWindow(ID_YUBIBTN), FindWindow(ID_YUBISTATUS));
   Bind(wxEVT_TIMER, &DbSelectionPanel::OnPollingTimer, this);
-  m_pollingTimer = new wxTimer(this, POLLING_TIMER_ID);
-  m_pollingTimer->Start(YubiMixin::POLLING_INTERVAL);
 #endif
   
   //The parent window must call our TransferDataToWindow and TransferDataFromWindow
   m_parent->SetExtraStyle(m_parent->GetExtraStyle() | wxWS_EX_VALIDATE_RECURSIVELY);
-}
-
-DbSelectionPanel::~DbSelectionPanel()
-{
-  delete m_pollingTimer;
 }
 
 void DbSelectionPanel::SelectCombinationText()
@@ -155,8 +141,8 @@ bool DbSelectionPanel::DoValidation()
     m_combination = m_yubiCombination.empty() ? m_sc->GetCombination() : m_yubiCombination;
     //Does the combination match?
     if (m_core->CheckPasskey(tostringx(wxfn.GetFullPath()), m_combination) != PWScore::SUCCESS) {
-      wxString errmess(_("Incorrect passkey, not a PasswordSafe database, or a corrupt database. (Backup database has same name as original, ending with '~')"));
-      wxMessageBox(errmess, _("Error"), wxOK | wxICON_ERROR, this);
+      wxString errmess(_("Incorrect master password, not a Password Safe database,\nor a corrupt database."));
+      wxMessageBox(errmess, _("Can't open a password database"), wxOK | wxICON_ERROR, this);
       SelectCombinationText();
       m_combination.clear();
       return false;

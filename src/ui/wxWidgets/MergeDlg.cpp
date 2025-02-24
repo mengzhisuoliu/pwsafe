@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -47,7 +47,7 @@ MergeDlg::MergeDlg(wxWindow *parent, PWScore* core, const wxString& filename) :
 
   const wxString filePrompt(wxString(_("Choose Database to Merge into \"")) <<
                                           towxstring(m_core->GetCurFile()) << wxT("\""));
-  const wxString filePickerCtrlTitle(_("Please Choose a Database to Merge into current database"));
+  const wxString filePickerCtrlTitle(_("Choose a Database to Merge into current database"));
 
   wxBoxSizer* dlgSizer = new wxBoxSizer(wxVERTICAL);
 

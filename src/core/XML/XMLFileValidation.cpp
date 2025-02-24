@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -63,10 +63,16 @@ const XMLFileValidation::st_file_elements XMLFileValidation::m_file_elements[XLE
   {_T("DefaultAutotypeString"), {XLE_PREF_DEFAULTAUTOTYPESTRING, 0}},
   {_T("DefaultSymbols"), {XLE_PREF_DEFAULTSYMBOLS, 0}},
   {_T("CopyPasswordWhenBrowseToURL"), {XLE_PREF_COPYPASSWORDWHENBROWSETOURL, 0}},
+  {_T("ExcludeFromScreenCapture"), {XLE_PREF_EXCLUDEFROMSCREENCAPTURE, 0}},
   {_T("group"), {0, XLE_GROUP}},
   {_T("title"), {0, XLE_TITLE}},
   {_T("username"), {0, XLE_USERNAME}},
   {_T("password"), {0, XLE_PASSWORD}},
+  {_T("twofactorkey"), {0, XLE_TWOFACTORKEY}},
+  {_T("totpconfig"), {0, XLE_TOTPCONFIG}},
+  {_T("totpstarttime"), {0, XLE_TOTPSTARTTIME}},
+  {_T("totptimestep"), {0, XLE_TOTPTIMESTEP}},
+  {_T("totplength"), {0, XLE_TOTPLENGTH}},
   {_T("url"), {0, XLE_URL}},
   {_T("autotype"), {0, XLE_AUTOTYPE}},
   {_T("runcommand"), {0, XLE_RUNCOMMAND}},

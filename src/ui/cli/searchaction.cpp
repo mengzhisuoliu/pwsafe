@@ -1,6 +1,6 @@
 /*
  * Created by Saurav Ghosh on 19/06/16.
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -8,7 +8,6 @@
  */
 
 #include "stdafx.h"
-#include <string>
 
 #include "./searchaction.h"
 #include "./strutils.h"
@@ -26,6 +25,7 @@ constexpr CItemData::FieldType known_fields[] = {
   CItemData::USER,
   CItemData::NOTES,
   CItemData::PASSWORD,
+  CItemData::TWOFACTORKEY,
   CItemData::CTIME,
   CItemData::PMTIME,
   CItemData::ATIME,
@@ -42,7 +42,11 @@ constexpr CItemData::FieldType known_fields[] = {
   CItemData::SYMBOLS,
   CItemData::SHIFTDCA,
   CItemData::POLICYNAME,
-  CItemData::KBSHORTCUT
+  CItemData::KBSHORTCUT,
+  CItemData::TOTPCONFIG,
+  CItemData::TOTPLENGTH,
+  CItemData::TOTPTIMESTEP,
+  CItemData::TOTPSTARTTIME
 };
 
 int PrintSearchResults(const ItemPtrVec &items, PWScore &, const CItemData::FieldBits &ftp,
@@ -138,6 +142,44 @@ int ChangePasswordOfSearchResults(const ItemPtrVec &items, PWScore &core)
     it->second.SetPassword( pol.Get(p).MakeRandomPassword() );
   }
   return PWScore::SUCCESS;
+}
+
+int GenerateTotpCodeForSearchResults(const ItemPtrVec& items, PWScore&, std::wostream& os, int verbosity_level) 
+{
+  PWScore::Status result = PWScore::SUCCESS;
+  for_each(items.begin(), items.end(), [&os, &result, verbosity_level](const CItemData* p) {
+    const CItemData& data = *p;
+    if (data.GetTwoFactorKeyLength() == 0) {
+      os << "TOTP key not found. Entry not configured for TOTP." << endl;
+      result = PWScore::FAILURE;
+      return;
+    }
+    uint8_t totp_time_step_seconds = data.GetTotpTimeStepSecondsAsByte();
+    time_t totp_start_time = data.GetTotpStartTimeAsTimeT();
+    time_t totp_time_now;
+    uint32_t totp_auth_code;
+    PWSTotp::TOTP_Result totpResult = PWSTotp::GetNextTotpAuthCode(data, totp_auth_code, &totp_time_now);
+    if (verbosity_level > 0) {
+      os << "TOTP Config: " << (int)data.GetTotpConfigAsByte() << endl;
+      os << "TOTP Auth Code Length: " << (int)data.GetTotpLengthAsByte() << endl;
+      os << "TOTP Time Step Seconds: " << (int)data.GetTotpTimeStepSecondsAsByte() << endl;
+      os << "TOTP Start Time: " << data.GetTotpStartTimeAsTimeT() << endl;
+    }
+    if (totpResult != PWSTotp::Success) {
+      os << "TOTP authentication code generation error." << endl
+        << PWSTotp::GetTotpErrorString(totpResult) << " (TOTP Error=" << totpResult << ")" << endl;
+      result = PWScore::FAILURE;
+      return;
+    }
+    uint64_t seconds_remaining = totp_time_step_seconds - ((totp_time_now - totp_start_time) % totp_time_step_seconds);
+    StringX totp_auth_code_str = PWSTotp::TotpCodeToString(data, totp_auth_code);
+    os << "Authentication Code: " << totp_auth_code_str
+       << " valid for approximately " << seconds_remaining
+       << (seconds_remaining > 1 ? " seconds." : " second.")
+       << endl;
+   });
+
+  return result;
 }
 
 constexpr const wchar_t *SearchActionTraits<UserArgs::Delete>::prompt;

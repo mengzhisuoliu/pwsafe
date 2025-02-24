@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -278,8 +278,9 @@ private:
   void FinishRenamingGroup(wxTreeEvent& evt, wxTreeItemId groupItem, const wxString& oldPath);
   CItemData CreateNewItemAsCopy(const CItemData *dataSrc, StringX sxNewPath, bool checkName, bool newEntry = false);
   void ExtendCommandCopyGroup(MultiCommands* pmCmd, wxTreeItemId itemSrc, StringX sxNewPath, bool checkName);
-  void CreateCommandRenamingGroup(StringX sxNewPath, StringX sxOldPath);
-  void CreateCommandCopyGroup(wxTreeItemId itemSrc, StringX sxNewPath, StringX sxOldPath, bool checkName);
+  MultiCommands* CreateCommandRenamingGroup(StringX sxNewPath, StringX sxOldPath);
+  MultiCommands* CreateCommandCopyGroup(wxTreeItemId itemSrc, StringX sxNewPath, StringX sxOldPath, bool checkName);
+  void ExecuteMultiCommands(MultiCommands* commands);
   bool IsDescendant(const wxTreeItemId itemDst, const wxTreeItemId itemSrc);
   void markDragItem(const wxTreeItemId itemSrc, bool markIt = true);
   void resetDragItems(bool initSize = false);
@@ -296,6 +297,8 @@ private:
   void GetEntryData(DnDObList &dnd_oblist, CItemData *pci);
   bool ProcessDnDData(StringX &sxDropPath, wxMemoryBuffer *inDDmem);
   void AddDnDEntries(MultiCommands *pmCmd, DnDObList &dnd_oblist, StringX &sxDropPath);
+
+  void EditTreeLabel(wxTreeCtrl* tree, const wxTreeItemId& id);
 
 ////@begin TreeCtrl member variables
   wxTreeItemId m_drag_item;

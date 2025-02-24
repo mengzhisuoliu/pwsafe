@@ -17,7 +17,7 @@
 
 STRINGTABLE
 BEGIN
-  IDSC_PASSWORDTOOSHORT   "Password is too short"
+  IDSC_PASSWORDTOOSHORT   "Password is too short."
   IDSC_PASSWORDPOOR       "Password should be mixed case, with at least one digit or punctuation character"
 END
 
@@ -27,6 +27,8 @@ BEGIN
   IDSC_FLDNMUUID         "UUID"
   IDSC_FLDNMUSERNAME     "Username"
   IDSC_FLDNMPASSWORD     "Password"
+  IDSC_FLDNMTWOFACTORKEY "Two Factor Key"
+  IDSC_FLDNMTWOFACTORKEY_UI "Authentication Secret"
   IDSC_FLDNMURL          "URL"
   IDSC_FLDNMAUTOTYPE     "AutoType"
   IDSC_FLDNMCTIME        "Created Time"
@@ -53,6 +55,15 @@ BEGIN
   IDSC_FLDNMCCEXP        "Credit card expiration"
   IDSC_FLDNMCCVV         "Credit card CVV"
   IDSC_FLDNMCCPIN        "Credit card PIN"
+  IDSC_FLDNMTOTPCONFIG   "Authentication Code Config"
+  IDSC_FLDNMTOTPLENGTH   "Authentication Code Length"
+  IDSC_FLDNMTOTPTIMESTEP "Authentication Code Time Step"
+  IDSC_FLDNMTOTPSTARTTIME "Authentication Code Start Time"
+  IDSC_FLDNMDATAATTTITLE     "Attachment Title"
+  IDSC_FLDNMDATAATTMEDIATYPE "Attachment Media Type"
+  IDSC_FLDNMDATAATTFILENAME  "Attachment File Name"
+  IDSC_FLDNMDATAATTMTIME     "Attachment Modification Time"
+  IDSC_FLDNMDATAATTCONTENT   "Attachment Content"
 END
 
 STRINGTABLE
@@ -85,7 +96,7 @@ BEGIN
   IDSC_IMPORTCONFLICTS2   "Entry on line %d with no group"
   IDSC_IMPORTCONFLICTSX1  "Entry with Group=""%ls"""
   IDSC_IMPORTCONFLICTSX2  "Entry with no group"
-  IDSC_IMPORTABORTED      "Import aborted. Please see report."
+  IDSC_IMPORTABORTED      "Import aborted, see report for details."
   IDSC_IMPORTMISSINGTITLE "Could not find the next entry's title field in the KeePass V1 TXT (should be within square brackets)."
   IDSC_IMPORTINVALIDDELIMITER "Invalid field delimiter: must be within ASCII range."
 END
@@ -210,7 +221,7 @@ BEGIN
   IDSC_VALIDATE_WARNINGS   "The following WARNINGS were detected - you should review and fix them manually."
   IDSC_VALIDATE_MISSING_ATT "The following entries refer to missing attachments."
   IDSC_VALIDATE_ORPHAN_ATT "The following attachments are not referred to by any entry."
-  IDSC_VALIDATE_ATTACHMENT "\tName: %s; Filename: %s"
+  IDSC_VALIDATE_ATTACHMENT "\tName: %ls; Filename: %ls"
   IDCS_VALIDATE_NOTSET     "<Not Set>"
 END
 
@@ -332,7 +343,7 @@ STRINGTABLE
 BEGIN
   IDSC_FILTEREXISTS        "Filter %ls already exists in the database, do you wish to replace it with this?"
   IDSC_CANTVALIDATEXML     "Missing XSD File"
-  IDSC_MISSINGXSD          "Can't find XML Schema Definition file (%ls) in your PasswordSafe Application Directory.\nPlease copy it from your installation file, or re-install PasswordSafe."
+  IDSC_MISSINGXSD          "Can't find XML Schema Definition file (%ls) in your PasswordSafe Application Directory.\nCopy it from your installation file, or re-install PasswordSafe."
 END
 
 STRINGTABLE
@@ -418,8 +429,8 @@ END
 STRINGTABLE
 BEGIN
   IDSC_DELETEBASET         "Delete Base Entry Confirmation"
-  IDSC_DELETEABASE         "This entry has the following %d %ls:\n%ls\nPlease confirm to continue (alias entry's passwords will be replaced by this entry's password)?"
-  IDSC_DELETESBASE         "This entry has the following %d %ls:\n%ls\nPlease confirm to continue (All shortcuts to this entry will be deleted)?"
+  IDSC_DELETEABASE         "This entry has the following %d %ls:\n%ls\nConfirm to continue (alias entry's passwords will be replaced by this entry's password)?"
+  IDSC_DELETESBASE         "This entry has the following %d %ls:\n%ls\nConfirm to continue (All shortcuts to this entry will be deleted)?"
 END
 
 STRINGTABLE
@@ -467,4 +478,32 @@ STRINGTABLE
 BEGIN
   IDSC_DRAGNUMBER          " Drag # %d"
   IDSC_DRAGPOLICY          "%ls - Drag & Drop %ls"
+END
+
+STRINGTABLE
+BEGIN
+   IDSC_TOTP_ERROR_SUCCESS                "The Authentication Code operation was successful"
+   IDSC_TOTP_ERROR_UNKNOWN                "An unknown Authentication Code error occurred"
+   IDSC_TOTP_ERROR_INVALID_CONFIG         "The Authentication Code configuration is invalid"
+   IDSC_TOTP_ERROR_KEY_NOT_FOUND          "The authentication secret was not found"
+   IDSC_TOTP_ERROR_KEY_INVALID_CHARS      "Allowed characters are a-z, 2-7, space and dash"
+   IDSC_TOTP_ERROR_BASE32_DECODE_FAILURE  "Bad length"
+END
+
+STRINGTABLE
+BEGIN
+  IDSC_ALIASNOTFOUNDA      "Password implies this is an alias entry, but "
+  IDSC_ALIASNOTFOUND0A     "multiple entries exist with title=%s."
+  IDSC_ALIASNOTFOUND0B     "no entry exists with title=%s."
+  IDSC_ALIASNOTFOUND1A     "multiple entries exist with title=%s and username=%s or with group=%s and title=%s."
+  IDSC_ALIASNOTFOUND1B     "no entry exists with title=%s and username=%s or with group=%s, title=%s."
+  IDSC_ALIASNOTFOUND2A     "no entry exists with group=%s, title=%s and username=%s."
+  IDSC_ALIASNOTFOUND2B     "no entry exists with group=%s, title=%s and empty username."
+  IDSC_ALIASNOTFOUND2C     "no entry exists in the root with title=%s and username=%s."
+  IDSC_ALIASNOTFOUNDZ      "\n\nSelect Yes to continue with this password or No to cancel"
+  IDSC_ALIASCANTREFERTOITSELF             "An alias cannot refer to itself!"
+  IDSC_BASEHASNOTITLE      "Password implies this is an alias entry, but specifies a base entry with no title.\nEvery entry must have a title."
+  IDSC_BASEISALIAS         "The referenced entry '%s:%s:%s' is itself an alias or shortcut. This is not supported."
+  IDSC_ABASEINVALID          "This alias' target [%s:%s:%s] is not a normal entry."
+
 END

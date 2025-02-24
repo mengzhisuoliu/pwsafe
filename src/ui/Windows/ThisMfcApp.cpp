@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -18,6 +18,7 @@
 #include "PasswordSafe.h"
 
 #include "ThisMfcApp.h"
+#include "winutils.h"
 #include "DboxMain.h"
 #include "SingleInstance.h"
 #include "CryptKeyEntry.h"
@@ -41,6 +42,7 @@
 #include "os/env.h"
 #include "os/lib.h"
 #include "os/debug.h"
+#include "os/registry.h"
 
 #include "Shlwapi.h"
 
@@ -74,7 +76,8 @@ ThisMfcApp::ThisMfcApp() :
   m_HotKeyPressed(false), m_bACCEL_Table_Created(false),
   m_ResLangID(0),
   m_noSysEnvWarnings(false),
-  m_bPermitTestdump(false)
+  m_bPermitTestdump(false),
+  m_allowScreenCaptureState(Disallowed)
 {
   // Get my Thread ID
   m_nBaseThreadID = AfxGetThread()->m_nThreadID;
@@ -880,6 +883,8 @@ bool ThisMfcApp::ParseCommandLine(DboxMain &dbox, bool &allDone, bool &postMinim
           dialogOrientation = PWSprefs::WIDE;
         } else if ((*arg) == L"--do-auto") {
           dialogOrientation = PWSprefs::AUTO;
+        } else if ((*arg) == L"--allow-screen-capture") {
+          m_allowScreenCaptureState = ForceAllowedCommandLine;
         } else {
           // unrecognized extended flag. Silently ignore.
         }
@@ -999,6 +1004,62 @@ bool ThisMfcApp::ParseCommandLine(DboxMain &dbox, bool &allDone, bool &postMinim
   return true;
 }
 
+UINT ThisMfcApp::ResolveAllowScreenCaptureStateResourceId(UINT nIdFirst) const
+{
+  // nIdFirst is the first known valid state.
+  // nIdFirst - 1 should be a resource indicating a program/state error.
+  // From nIdFirst through to the last state (nIdFirst + MaxState - 1),
+  // the resource should reflect within itself the indicated state.
+  UINT nId = nIdFirst - 1;
+  if (m_allowScreenCaptureState >= Disallowed || m_allowScreenCaptureState < MaxState)
+    nId = nIdFirst + m_allowScreenCaptureState;
+  return nId;
+}
+
+CString ThisMfcApp::GetAllowScreenCaptureStateMessage(UINT nIdFirst) const
+{
+  UINT nId = ResolveAllowScreenCaptureStateResourceId(nIdFirst);
+  CString csExcludeOverridePhrase;
+  if (!csExcludeOverridePhrase.LoadStringW(nId))
+    csExcludeOverridePhrase = L"<error-invalid-state-message>";
+  return csExcludeOverridePhrase;
+}
+
+int ThisMfcApp::GetScreenCaptureProtectionEnabledRegValue()
+{
+
+  const int ENABLED = 1;
+  HKEY hKey;
+  LSTATUS result;
+  result = ::RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                          PWS_ADMIN_OPTIONS_SUBKEY_NAME,
+                          0,
+                          KEY_QUERY_VALUE,
+                          &hKey);
+  if (result != ERROR_SUCCESS)
+    return ENABLED;
+  DWORD dwValue;
+  DWORD dwType;
+  DWORD dwSize = sizeof(dwValue);
+  result = ::RegQueryValueEx(hKey,
+                             SCRCAP_PROTECTION_ENABLED_REG_VALUE_NAME,
+                             NULL,
+                             &dwType,
+                             reinterpret_cast<LPBYTE>(&dwValue),
+                             &dwSize);
+  ::RegCloseKey(hKey);
+  if (result != ERROR_SUCCESS || dwType != REG_DWORD || dwSize != sizeof(dwValue))
+    return ENABLED;
+  return static_cast<int>(dwValue);
+}
+
+bool ThisMfcApp::IsExcludeFromScreenCapture() const
+{
+  if (!PWSprefs::GetInstance()->GetPref(PWSprefs::ExcludeFromScreenCapture))
+    return false;
+  return m_allowScreenCaptureState == Disallowed;
+}
+
 BOOL ThisMfcApp::InitInstance()
 {
   /*
@@ -1071,6 +1132,11 @@ BOOL ThisMfcApp::InitInstance()
   // the config file specifies a different language.
   bool parseVal = ParseCommandLine(*m_pDbx, allDone, postMinimize);
 
+  // If screen capture protection is not disabled by command line processing,
+  // get the registry (installer) screen capture protection setting.
+  if (IsExcludeFromScreenCapture() && GetScreenCaptureProtectionEnabledRegValue() == 0)
+    m_allowScreenCaptureState = AllowedRegistrySetting;
+
   // allDone will be true iff -e or -d options given, in which case
   // we're just a batch encryptor/decryptor
   if (allDone)
@@ -1135,7 +1201,7 @@ BOOL ThisMfcApp::InitInstance()
   // PWScore needs it to get into database header if/when saved
   m_core.SetApplicationNameAndVersion(AfxGetAppName(), m_dwMajorMinor, m_dwBuildRevision);
 
-  if (!m_core.IsDbOpen()) {
+  if (!m_core.IsDbFileSet()) {
     std::wstring path = prefs->GetPref(PWSprefs::CurrentFile).c_str();
     pws_os::AddDrive(path);
     m_core.SetCurFile(path.c_str());

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -134,6 +134,7 @@ void CShowCompareDlg::PopulateResults(bool bShowAll)
   const int iFields[] = {
     CItemData::NAME,                        // Special processing
     CItemData::PASSWORD,                    // Special processing
+    CItemData::TWOFACTORKEY,
     CItemData::ENTRYTYPE,                   // Special processing
     CItemData::URL, CItemData::AUTOTYPE,
     CItemData::RUNCMD, CItemData::EMAIL,
@@ -143,6 +144,7 @@ void CShowCompareDlg::PopulateResults(bool bShowAll)
     CItemData::CTIME, CItemData::PMTIME, CItemData::ATIME, CItemData::XTIME,
     CItemData::RMTIME, CItemData::XTIME_INT, CItemData::PWHIST, CItemData::NOTES,
     CItemData::CCNUM, CItemData::CCEXP, CItemData::CCVV, CItemData::CCPIN,
+    CItemData::DATA_ATT_TITLE, CItemData::DATA_ATT_MEDIATYPE, CItemData::DATA_ATT_FILENAME, CItemData::DATA_ATT_MTIME, CItemData::DATA_ATT_CONTENT,
   };
 
   // Check we have considered all user fields
@@ -153,7 +155,7 @@ void CShowCompareDlg::PopulateResults(bool bShowAll)
   // Include 1: ENTRYTYPE
   // The developer will still need to ensure new fields are processed below
   // Put in compilation check as this may not be regression tested every time
-  static_assert((sizeof(iFields) / sizeof(iFields[0]) == (CItem::LAST_USER_FIELD - 6 + 1)),
+  static_assert((sizeof(iFields) / sizeof(iFields[0]) == (CItem::LAST_USER_FIELD - 11 + 2)),
     "Check user comparison items - there are some missing! They must be before LAST_USER_FIELD");
 
   StringX sxDefPolicyStr;
@@ -339,6 +341,18 @@ void CShowCompareDlg::PopulateResults(bool bShowAll)
     else
       sxValue2 = pci_other->GetFieldValue((CItemData::FieldType)i);
 
+    if (i == CItemData::TWOFACTORKEY) {
+      if (m_pci->IsAlias())
+        sxValue1 = pci_base->GetFieldValue(CItemData::TWOFACTORKEY);
+      else
+        sxValue1 = pci->GetFieldValue(CItemData::TWOFACTORKEY);
+
+      if (m_pci_other->IsAlias())
+        sxValue2 = pci_other_base->GetFieldValue(CItemData::TWOFACTORKEY);
+      else
+        sxValue2 = pci_other->GetFieldValue(CItemData::TWOFACTORKEY);
+    }
+
     if (i == CItemData::POLICY && m_bDifferentDB) {
       // If different databases and both policies are their respective defaults
       // If these are not the same, force the difference to be shown by making one different
@@ -386,12 +400,22 @@ void CShowCompareDlg::PopulateResults(bool bShowAll)
             if (t1 == 0) sxValue1 = L"N/A";
             if (t2 == 0) sxValue2 = L"N/A";
             break;
+          case CItemData::DATA_ATT_MTIME: /* 0x28 */
+            pci->GetAttModificationTime(t1);
+            pci_other->GetAttModificationTime(t2);
+            if (t1 == 0) sxValue1 = L"N/A";
+            if (t2 == 0) sxValue2 = L"N/A";
+            break;
           case CItemData::XTIME_INT:  /* 0x11 */
           case CItemData::PROTECTED:  /* 0x15 */
             break;
           case CItemData::ATTREF:     /* 0x1a */
             sxValue1 = pci->HasAttRef() ? sxNo : sxYes;
             sxValue2 = pci_other->HasAttRef() ? sxNo : sxYes;
+            break;
+          case CItemData::DATA_ATT_CONTENT: /* 0x29 */
+            sxValue1 = pci->IsAttContentSet() ? sxYes : sxNo;
+            sxValue2 = pci_other->IsAttContentSet() ? sxYes : sxNo;
             break;
           case CItemData::DCA:        /* 0x13 */
           case CItemData::SHIFTDCA:   /* 0x17 */
@@ -413,7 +437,7 @@ void CShowCompareDlg::PopulateResults(bool bShowAll)
             ASSERT(0);
         }
         if (i == CItemData::CTIME  || i == CItemData::ATIME || i == CItemData::XTIME ||
-            i == CItemData::PMTIME || i == CItemData::RMTIME) {
+            i == CItemData::PMTIME || i == CItemData::RMTIME || i == CItemData::DATA_ATT_MTIME) {
           if (t1 != 0)
             sxValue1 = PWSUtil::ConvertToDateTimeString(t1, PWSUtil::TMC_EXPORT_IMPORT);
           if (t2 != 0)
@@ -455,18 +479,8 @@ void CShowCompareDlg::PopulateResults(bool bShowAll)
         }
       }
       if (i == CItemData::PWHIST) {
-        size_t num_err1, num_err2, MaxPWHistory1, MaxPWHistory2;
-        PWHistList pwhistlist1, pwhistlist2;
-        bool status1 = CreatePWHistoryList(sxValue1,
-                                      MaxPWHistory1,
-                                      num_err1,
-                                      pwhistlist1,
-                                      PWSUtil::TMC_EXPORT_IMPORT);
-        bool status2 = CreatePWHistoryList(sxValue2,
-                                      MaxPWHistory2,
-                                      num_err2,
-                                      pwhistlist2,
-                                      PWSUtil::TMC_EXPORT_IMPORT);
+        PWHistList pwhistlist1(sxValue1, PWSUtil::TMC_EXPORT_IMPORT);
+        PWHistList pwhistlist2(sxValue2, PWSUtil::TMC_EXPORT_IMPORT);
 
         // If any password history value is different - it must be red
         if (sxValue1 != sxValue2)
@@ -478,8 +492,8 @@ void CShowCompareDlg::PopulateResults(bool bShowAll)
         // Now add sub-fields
         iPos++;
 
-        sxValue1 = status1 ? sxYes : sxNo;
-        sxValue2 = status2 ? sxYes : sxNo;
+        sxValue1 = pwhistlist1.isSaving() ? sxYes : sxNo;
+        sxValue2 = pwhistlist2.isSaving() ? sxYes : sxNo;
         if (bShowAll || sxValue1 != sxValue2) {
           LoadAString(sFieldName, IDS_PWHACTIVE);
           iPos = m_ListCtrl.InsertItem(iPos, sFieldName.c_str());
@@ -492,8 +506,8 @@ void CShowCompareDlg::PopulateResults(bool bShowAll)
           iPos++;
         }
 
-        Format(sxValue1, L"%d", MaxPWHistory1);
-        Format(sxValue2, L"%d", MaxPWHistory2);
+        Format(sxValue1, L"%d", pwhistlist1.getMax());
+        Format(sxValue2, L"%d", pwhistlist2.getMax());
         if (bShowAll || sxValue1 != sxValue2) {
           LoadAString(sFieldName, IDS_PWHMAX);
           iPos = m_ListCtrl.InsertItem(iPos, sFieldName.c_str());

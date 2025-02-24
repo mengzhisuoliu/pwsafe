@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -11,7 +11,7 @@
 // PWScore.h
 //-----------------------------------------------------------------------------
 
-#include "os/pws_tchar.h"
+#include "../os/pws_tchar.h"
 #include "StringX.h"
 #include "PWSfile.h"
 #include "PWSFilters.h"
@@ -25,7 +25,7 @@
 
 #include "coredefs.h"
 
-// Parameter list for ParseBaseEntryPWD
+// Parameter list for ParseAliasPassword
 struct BaseEntryParms {
   // All fields except "InputType" are 'output'.
   StringX csPwdGroup;
@@ -37,7 +37,8 @@ struct BaseEntryParms {
   int ibasedata;
   bool bMultipleEntriesFound;
 
-  BaseEntryParms() : base_uuid(pws_os::CUUID::NullUUID()) {}
+  BaseEntryParms() : base_uuid(pws_os::CUUID::NullUUID()), InputType(CItemData::ET_INVALID), TargetType(CItemData::ET_INVALID)
+    {}
 };
 
 // Formatted Database properties
@@ -126,7 +127,7 @@ public:
   void ReInit(bool bNewfile = false);
 
   // Following used to read/write databases and Get/Set file name
-  bool IsDbOpen() const { return !m_currfile.empty(); }
+  bool IsDbFileSet() const { return !m_currfile.empty(); }
   StringX GetCurFile() const {return m_currfile;}
   void SetCurFile(const StringX &file) {m_currfile = file;}
 
@@ -191,6 +192,11 @@ public:
                    const int &subgroup_object, const int &subgroup_function,
                    int &numUpdated, CReport *pRpt, bool *pbCancel = nullptr);
 
+  // helper function to Sync a single item, returns true if dstItem was updated.
+  // Adds ProcessPolicyName command to multiCommand if a password policy was updated.
+  bool SyncItem(const CItemData& srcItem, CItemData& dstItem,
+                const CItemData::FieldBits& bsFields, MultiCommands &mcmd, const PWScore *potherCore);
+
   // Used for Empty Groups during Merge
   bool MatchGroupName(const StringX &stValue, const StringX &subgroup_name,
                       const int &iFunction) const;
@@ -249,6 +255,7 @@ public:
   void UnlockFile(const stringT &filename);
 
   void SafeUnlockCurFile(); // unlocks current file iff we locked it.
+  void SafeUnlockFile(const stringT &filename);
 
   // Following 3 routines only for SaveAs to use a temporary lock handle
   // LockFile2, UnLockFile2 & MoveLock
@@ -271,7 +278,7 @@ public:
   // Get all password policy names
   void GetPolicyNames(std::vector<stringT> &vNames) const;
   bool GetPolicyFromName(const StringX &sxPolicyName, PWPolicy &st_pp) const;
-  Command *ProcessPolicyName(PWScore *pothercore, CItemData &updtEntry,
+  Command *ProcessPolicyName(const PWScore *pothercore, CItemData &updtEntry,
                              std::map<StringX, StringX> &mapRenamedPolicies,
                              std::vector<StringX> &vs_PoliciesAdded,
                              StringX &sxOtherPolicyName, bool &bUpdated,
@@ -338,10 +345,15 @@ public:
                               UUIDVector &dependentslist, 
                               const CItemData::EntryType type);
   // Takes apart a 'special' password into its components:
-  bool ParseBaseEntryPWD(const StringX &passwd, BaseEntryParms &pl);
+  bool ParseAliasPassword(const StringX &passwd, BaseEntryParms &pl);
+  // Check an Alias
+  bool CheckAliasValidity(const BaseEntryParms& pl, const StringX& selfGTU, StringX& errmess, bool &yesNoError);
 
   const CItemData *GetBaseEntry(const CItemData *pAliasOrSC) const;
   CItemData *GetBaseEntry(const CItemData *pAliasOrSC);
+
+  const CItemData* GetCredentialEntry(const CItemData* pAny) const;
+  CItemData* GetCredentialEntry(const CItemData* pAny);
 
   // alias/base and shortcut/base handling
   void SortDependents(UUIDVector &dlist, StringX &csDependents);
@@ -568,7 +580,6 @@ private:
   bool m_bIsReadOnly;
   bool m_bUniqueGTUValidated;
   bool m_bNotifyDB;
-  bool m_bIsOpen;
 
     PWSfileHeader m_hdr;
   StringX m_InitialDBName, m_InitialDBDesc;

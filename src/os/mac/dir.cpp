@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -17,7 +17,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <sys/stat.h>
-#include <Carbon/Carbon.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 /*
  * GetStringTFromURLRef
@@ -170,9 +170,9 @@ static stringT createuserprefsdir(void)
   stringT cfgdir = pws_os::getenv("HOME", true);
   if (!cfgdir.empty()) {
     if(cfgdir[cfgdir.length()-1] != '/') {
-      cfgdir += _S("/.pwsafe");
+      cfgdir += _T("/.pwsafe");
     } else {
-      cfgdir += _S(".pwsafe");
+      cfgdir += _T(".pwsafe");
     }
     struct stat statbuf;
     switch (::lstat(pws_os::tomb(cfgdir).c_str(), &statbuf)) {
@@ -194,7 +194,7 @@ static stringT createuserprefsdir(void)
       break;
     }
     if (!cfgdir.empty())
-      cfgdir += _S('/');
+      cfgdir += _T('/');
   } // $HOME defined
   return cfgdir;
 }

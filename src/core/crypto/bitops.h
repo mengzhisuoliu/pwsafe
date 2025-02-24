@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -44,6 +44,12 @@
 #define ENDIAN_64BITWORD
 #endif
 
+/* detect 64bit arm */
+#if defined(__aarch64__)
+#define ENDIAN_LITTLE
+#define ENDIAN_64BITWORD
+#endif
+
 /* #define ENDIAN_LITTLE */
 /* #define ENDIAN_BIG */
 
@@ -74,7 +80,7 @@ typedef uint64_t ulong64;
 typedef unsigned ulong32;
 #endif
 
-#if defined(__linux__) || defined(__CYGWIN__) || defined (macintosh) || defined(Macintosh) || defined(__APPLE__) || defined(__MACH__) || defined(__FreeBSD) || defined(__FreeBSD__)
+#if defined(__linux__) || defined(__CYGWIN__) || defined (macintosh) || defined(Macintosh) || defined(__APPLE__) || defined(__MACH__) || defined(__FreeBSD) || defined(__FreeBSD__) || defined (__OpenBSD) || defined (__OpenBSD__)
 /* Following seems needed on Linux/cygwin
    and on macs to avoid "Impossible constraint in 'asm'" errors in ROLc()
    and RORc() functions below */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -223,7 +223,7 @@ void SetFiltersDlg::OnApplyClick( wxCommandEvent& /*event*/ )
     }
     // At first time check parameter
     if(m_filterName.IsEmpty()) {
-      wxMessageBox(_("No filter name given."), _("Please name this filter."), wxOK|wxICON_ERROR);
+      wxMessageBox(_("No filter name given."), _("Name this filter."), wxOK|wxICON_ERROR);
       return;
     }
     if(! VerifyFilters()) {
@@ -254,7 +254,7 @@ void SetFiltersDlg::OnOkClick( wxCommandEvent& event )
 {
   if (Validate() && TransferDataFromWindow()) {
     if((m_filtertype == DFTYPE_MAIN) && m_filterName.IsEmpty()) {
-      wxMessageBox(_("No filter name given."), _("Please name this filter."), wxOK|wxICON_ERROR);
+      wxMessageBox(_("No filter name given."), _("Name this filter."), wxOK|wxICON_ERROR);
       return;
     }
     if(! VerifyFilters()) {
@@ -372,7 +372,7 @@ bool SetFiltersDlg::VerifyFilters()
   if(iError != -1) {
     stringT msg;
     Format(msg, _("Row %d is incomplete.").c_str(), iError);
-    wxMessageBox(_("Please set both Field and Criteria."), wxString(msg), wxOK|wxICON_ERROR);
+    wxMessageBox(_("Set both Field and Criteria."), wxString(msg), wxOK|wxICON_ERROR);
     return false;
   }
   
@@ -380,19 +380,19 @@ bool SetFiltersDlg::VerifyFilters()
     if((iHistory != -1) && (m_pfilters->vHfldata.empty() || ! m_pfilters->num_Hactive)) {
       stringT msg;
       Format(msg, _("Row %d is incomplete.").c_str(), iHistory);
-      wxMessageBox(_("Please set both Field and Criteria or update History filters."), wxString(msg), wxOK|wxICON_ERROR);
+      wxMessageBox(_("Set both Field and Criteria or update History filters."), wxString(msg), wxOK|wxICON_ERROR);
       return false;
     }
     if((iPolicy != -1) && (m_pfilters->vPfldata.empty() || ! m_pfilters->num_Pactive)) {
       stringT msg;
       Format(msg, _("Row %d is incomplete.").c_str(), iPolicy);
-      wxMessageBox(_("Please set both Field and Criteria or update Policy filters."), wxString(msg), wxOK|wxICON_ERROR);
+      wxMessageBox(_("Set both Field and Criteria or update Policy filters."), wxString(msg), wxOK|wxICON_ERROR);
       return false;
     }
     if((iAttachment != -1) && (m_pfilters->vAfldata.empty() || ! m_pfilters->num_Aactive)) {
       stringT msg;
       Format(msg, _("Row %d is incomplete.").c_str(), iAttachment);
-      wxMessageBox(_("Please set both Field and Criteria or update Attachment filters."), wxString(msg), wxOK|wxICON_ERROR);
+      wxMessageBox(_("Set both Field and Criteria or update Attachment filters."), wxString(msg), wxOK|wxICON_ERROR);
       return false;
     }
   }

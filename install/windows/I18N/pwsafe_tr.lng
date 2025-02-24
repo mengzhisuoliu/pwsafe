@@ -5,7 +5,7 @@
 ; first edit : Karlo Van der Gucht
 ;---------------------------------------------------
 ; Copyright 2004, David Lacy Kusters (dkusters@yahoo.com)
-; Copyright 2005-2023 Rony Shapiro <ronys@pwsafe.org>
+; Copyright 2005-2025 Rony Shapiro <ronys@pwsafe.org>
 ; 2009 extended by Karlo Van der Gucht for multiple language use
 ; 2010 extended by Karlo Van der Gucht Danish language
 ; This script may be redistributed and/or modified under the Artistic
@@ -19,143 +19,160 @@
 ;=================================================================
 
 ; RESERVE_TITLE "Choose Installation Type"
-LangString RESERVE_TITLE ${LANG_TURKISH} "Y�kleme Tipini Se�in"
+LangString RESERVE_TITLE ${LANG_TURKISH} "Yükleme Tipini Seçin"
 
 ; RESERVE_FIELD1 "Regular (uses Registry, suitable for home or single user PC)"
-LangString RESERVE_FIELD1 ${LANG_TURKISH} "Normal (kay�t defterini kullan�r, ev kullan�m� ve tek kullan�c�l� bilgisayarlar i�in uygun)"
+LangString RESERVE_FIELD1 ${LANG_TURKISH} "Normal (kayýt defterini kullanýr, ev kullanýmý ve tek kullanýcýlý bilgisayarlar için uygun)"
 
 ; RESERVE_FIELD2 "Green (for Disk-on-Key; does not use host Registry)"
-LangString RESERVE_FIELD2 ${LANG_TURKISH} "Ye�il (Ta��nabilir s�r�m i�in; kay�t defterini kullanmaz)"
+LangString RESERVE_FIELD2 ${LANG_TURKISH} "Yeþil (Taþýnabilir sürüm için; kayýt defterini kullanmaz)"
 
 ; PROGRAM_FILES "Program Files"
-LangString PROGRAM_FILES ${LANG_TURKISH} "Program Dosyalar�"
+LangString PROGRAM_FILES ${LANG_TURKISH} "Program Dosyalarý"
 
 ; START_AUTO "Start automatically"
-LangString START_AUTO ${LANG_TURKISH} "Otomatik olarak ba�lat"
+LangString START_AUTO ${LANG_TURKISH} "Otomatik olarak baþlat"
 
 ; START_SHOW "Show in start menu"
-LangString START_SHOW ${LANG_TURKISH} "Ba�lat men�s�nde g�ster"
+LangString START_SHOW ${LANG_TURKISH} "Baþlat menüsünde göster"
 
 ; START_SHORTCUT "Install desktop shortcut"
-LangString START_SHORTCUT ${LANG_TURKISH} "Masa�st�ne k�sayol ekle"
+LangString START_SHORTCUT ${LANG_TURKISH} "Masaüstüne kýsayol ekle"
 
 ; UNINSTALL_SHORTCUT "Uninstall shortcut"
-LangString UNINSTALL_SHORTCUT ${LANG_TURKISH} "Kald�rma k�sayolu"
+LangString UNINSTALL_SHORTCUT ${LANG_TURKISH} "Kaldýrma kýsayolu"
 
 ;--------------------------------
 ; Descriptions
 
 ; DESC_ProgramFiles "Installs the basic files necessary to run Password Safe."
-LangString DESC_ProgramFiles ${LANG_TURKISH} "Password Safe'i �al��t�rmak i�in gerekli temel dosyalar� y�kler."
+LangString DESC_ProgramFiles ${LANG_TURKISH} "Password Safe'i çalýþtýrmak için gerekli temel dosyalarý yükler."
 
 ; DESC_CliTool "Installs pwsafe-cli, a command line utility."
 LangString DESC_CliTool ${LANG_TURKISH} "Installs pwsafe-cli, a command line utility."
 
 ; DESC_LangSupport "Please select the language(s) that PasswordSafe will use."
-LangString DESC_LangSupport ${LANG_TURKISH} "L�tfen Password Safe'in kullanca�� dil(ler)i se�in."
+LangString DESC_LangSupport ${LANG_TURKISH} "Lütfen Password Safe'in kullancaðý dil(ler)i seçin."
 
 ; DESC_StartUp "Starts Password Safe as part of Windows boot/login."
-LangString DESC_StartUp ${LANG_TURKISH} "Password Safe'i Windows ba�lat�l�rken ba�lat�r."
+LangString DESC_StartUp ${LANG_TURKISH} "Password Safe'i Windows baþlatýlýrken baþlatýr."
 
 ; DESC_StartMenu "Creates an entry in the start menu for Password Safe."
-LangString DESC_StartMenu ${LANG_TURKISH} "Ba�lat men�s�ne Password Safe i�in bir girdi ekler."
+LangString DESC_StartMenu ${LANG_TURKISH} "Baþlat menüsüne Password Safe için bir girdi ekler."
 
-; DESC_DesktopShortcut "Masa�st�neze Password Safe i�in bir k�sayol ekler."
-LangString DESC_DesktopShortcut ${LANG_TURKISH} "Masa�st�n�ze Password Safe i�in bir k�sayol ekler."
+; DESC_DesktopShortcut "Masaüstüneze Password Safe için bir kýsayol ekler."
+LangString DESC_DesktopShortcut ${LANG_TURKISH} "Masaüstünüze Password Safe için bir kýsayol ekler."
 
 ; DESC_UninstallMenu "Places a shortcut in the start menu to Uninstall Password Safe."
-LangString DESC_UninstallMenu ${LANG_TURKISH} "Ba�lat men�s�ne PasswordSafe'i kald�rmak i�in bir k�sayol ekler"
+LangString DESC_UninstallMenu ${LANG_TURKISH} "Baþlat menüsüne PasswordSafe'i kaldýrmak için bir kýsayol ekler"
   
 ; "LangString" (for "Function GreenOrRegular") are setup here because they cannot be defined in the function body
 ; TEXT_GC_TITLE "Installation Type"
-LangString TEXT_GC_TITLE ${LANG_TURKISH} "Y�kleme Tipi"
+LangString TEXT_GC_TITLE ${LANG_TURKISH} "Yükleme Tipi"
 
 ; TEXT_GC_SUBTITLE "Choose Regular for use on a single PC, Green for portable installation. If you're not sure, 'Regular' is fine."
-LangString TEXT_GC_SUBTITLE ${LANG_TURKISH} "Tek bir bilgisayarda kullanmak i�in Normal'i, ta��nabilir y�kleme i�in Ye�il'i se�in. Emin de�ilseniz 'Normal' uygundur."
+LangString TEXT_GC_SUBTITLE ${LANG_TURKISH} "Tek bir bilgisayarda kullanmak için Normal'i, taþýnabilir yükleme için Yeþil'i seçin. Emin deðilseniz 'Normal' uygundur."
 
 ; PSWINI_TITLE "Choose Installation Type"
-LangString PSWINI_TITLE ${LANG_TURKISH} "Y�kleme Tipini Se�in"
+LangString PSWINI_TITLE ${LANG_TURKISH} "Yükleme Tipini Seçin"
 
 ; PSWINI_TEXT1 "Regular (uses Registry, suitable for home or single user PC)"
-LangString PSWINI_TEXT1 ${LANG_TURKISH} "Normal (kay�t defterini kullan�r, ev kullan�m� ve tek kullan�c�l� bilgisayarlar i�in uygun)"
+LangString PSWINI_TEXT1 ${LANG_TURKISH} "Normal (kayýt defterini kullanýr, ev kullanýmý ve tek kullanýcýlý bilgisayarlar için uygun)"
 
 ; PSWINI_TEXT2 "Green (for Disk-on-Key; does not use host Registry)"
-LangString PSWINI_TEXT2 ${LANG_TURKISH} "Ye�il (Ta��nabilir s�r�m i�in; kay�t defterini kullanmaz)"
+LangString PSWINI_TEXT2 ${LANG_TURKISH} "Yeþil (Taþýnabilir sürüm için; kayýt defterini kullanmaz)"
 
 ;--------------------------------
 ; checks and warnings
 
 ; RUNNING_INSTALL "The installer is already running."
-LangString RUNNING_INSTALL ${LANG_TURKISH} "Y�kleyici zaten �al���yor."
+LangString RUNNING_INSTALL ${LANG_TURKISH} "Yükleyici zaten çalýþýyor."
 
 ; RUNNING_APPLICATION "Please exit all running instances of PasswordSafe before installing a new version"
-LangString RUNNING_APPLICATION ${LANG_TURKISH} "Yeni s�r�m y�klemeden �nce l�tfen a��k olan t�m PasswordSafe kopyalar�n� kapat�n"
+LangString RUNNING_APPLICATION ${LANG_TURKISH} "Yeni sürüm yüklemeden önce lütfen açýk olan tüm PasswordSafe kopyalarýný kapatýn"
 
 ; LANG_INSTALL "Installation Language"
-LangString LANG_INSTALL ${LANG_TURKISH} "Y�kleme Dili"
+LangString LANG_INSTALL ${LANG_TURKISH} "Yükleme Dili"
 
 ; LANG_SELECT "Please select the language for the installation"
-LangString LANG_SELECT ${LANG_TURKISH} "L�tfen y�kleme dilini se�iniz"
+LangString LANG_SELECT ${LANG_TURKISH} "Lütfen yükleme dilini seçiniz"
 
 ; CLI_TOOL "Command-line tool"
 LangString CLI_TOOL ${LANG_TURKISH} "Command-line tool"
 
 ; LANGUAGE_SUPPORT "Language Support"
-LangString LANGUAGE_SUPPORT ${LANG_TURKISH} "Dil Deste�i"
+LangString LANGUAGE_SUPPORT ${LANG_TURKISH} "Dil Desteði"
 ; ENGLISH_SUPPORT "English"
-LangString ENGLISH_SUPPORT ${LANG_TURKISH} "�ngilizce"
+LangString ENGLISH_SUPPORT ${LANG_TURKISH} "Ýngilizce"
 ; CHINESE_CN_SUPPORT "Chinese (Simplified)"
-LangString CHINESE_CN_SUPPORT ${LANG_TURKISH} "�ince (Basitle�tirilmi�)"
+LangString CHINESE_CN_SUPPORT ${LANG_TURKISH} "Çince (Basitleþtirilmiþ)"
 ; CHINESE_TW_SUPPORT "Chinese (Traditional)"
-LangString CHINESE_TW_SUPPORT ${LANG_TURKISH} "�ince (Geleneksel)"
+LangString CHINESE_TW_SUPPORT ${LANG_TURKISH} "Çince (Geleneksel)"
 ; GERMAN_SUPPORT "German"
 LangString GERMAN_SUPPORT ${LANG_TURKISH} "Almanca"
 ; SPANISH_SUPPORT "Spanish"
-LangString SPANISH_SUPPORT ${LANG_TURKISH} "�spanyolca"
+LangString SPANISH_SUPPORT ${LANG_TURKISH} "Ýspanyolca"
 ; SWEDISH_SUPPORT "Swedish"
-LangString SWEDISH_SUPPORT ${LANG_TURKISH} "�sve� Dili"
+LangString SWEDISH_SUPPORT ${LANG_TURKISH} "Ýsveç Dili"
 ; DUTCH_SUPPORT "Dutch"
-LangString DUTCH_SUPPORT ${LANG_TURKISH} "Felemenk�e"
+LangString DUTCH_SUPPORT ${LANG_TURKISH} "Felemenkçe"
 ; FRENCH_SUPPORT "French"
-LangString FRENCH_SUPPORT ${LANG_TURKISH} "Frans�zca"
+LangString FRENCH_SUPPORT ${LANG_TURKISH} "Fransýzca"
 ; RUSSIAN_SUPPORT "Russian"
-LangString RUSSIAN_SUPPORT ${LANG_TURKISH} "Rus�a"
+LangString RUSSIAN_SUPPORT ${LANG_TURKISH} "Rusça"
 ; POLISH_SUPPORT "Polish"
-LangString POLISH_SUPPORT ${LANG_TURKISH} "Leh�e"
+LangString POLISH_SUPPORT ${LANG_TURKISH} "Lehçe"
 ; ITALIAN_SUPPORT "Italian"
-LangString ITALIAN_SUPPORT ${LANG_TURKISH} "�talyanca"
+LangString ITALIAN_SUPPORT ${LANG_TURKISH} "Ýtalyanca"
 ; DANISH_SUPPORT "Danish"
 LangString DANISH_SUPPORT ${LANG_TURKISH} "Danca"
 ; KOREAN_SUPPORT "Korean"
 LangString KOREAN_SUPPORT ${LANG_TURKISH} "Kore Dili"
 ; CZECH_SUPPORT "Czech"
-LangString CZECH_SUPPORT ${LANG_TURKISH} "�ek�e"
+LangString CZECH_SUPPORT ${LANG_TURKISH} "Çekçe"
 ; TURKISH_SUPPORT "Turkish"
-LangString TURKISH_SUPPORT ${LANG_TURKISH} "T�rk�e"
+LangString TURKISH_SUPPORT ${LANG_TURKISH} "Türkçe"
 LangString HUNGARIAN_SUPPORT ${LANG_TURKISH} "Macarca"
 LangString SLOVENIAN_SUPPORT ${LANG_TURKISH} "Slovena"
 LangString ARABIC_SUPPORT ${LANG_TURKISH} "Arapça"
+; PORTUGUESEBR_SUPPORT "Portuguese (Brazil)"
+LangString PORTUGUESEBR_SUPPORT ${LANG_TURKISH} "Portekizce (Brezilya)"
+LangString LATVIAN_SUPPORT ${LANG_TURKISH} "Letonca"
+
 
 ; LANG_PROGRAM "Program Language"
 LangString LANG_PROGRAM ${LANG_TURKISH} "Program Dili"
 
 ; SORRY_NO_95 "Sorry, Windows 95 is no longer supported. Try PasswordSafe 2.16"
-LangString SORRY_NO_95 ${LANG_TURKISH} "�zg�n�z, Windows 95 art�k desteklenmiyor. PasswordSafe 2.16'y� deneyin"
+LangString SORRY_NO_95 ${LANG_TURKISH} "Üzgünüz, Windows 95 artýk desteklenmiyor. PasswordSafe 2.16'yý deneyin"
 
 ; SORRY_NO_98 "Sorry, Windows 98 is no longer supported. Try PasswordSafe 2.16"
-LangString SORRY_NO_98 ${LANG_TURKISH} "�zg�n�z, Windows 98 art�k desteklenmiyor. PasswordSafe 2.16'y� deneyin"
+LangString SORRY_NO_98 ${LANG_TURKISH} "Üzgünüz, Windows 98 artýk desteklenmiyor. PasswordSafe 2.16'yý deneyin"
 
 ; SORRY_NO_ME "Sorry, Windows ME is no longer supported. Try PasswordSafe 2.16"
-LangString SORRY_NO_ME ${LANG_TURKISH} "�zg�n�z, Windows ME art�k desteklenmiyor. PasswordSafe 2.16'y� deneyin"
+LangString SORRY_NO_ME ${LANG_TURKISH} "Üzgünüz, Windows ME artýk desteklenmiyor. PasswordSafe 2.16'yý deneyin"
 
 ; SORRY_NO_2K "Sorry, Windows 2000 is no longer supported. Try PasswordSafe 3.18"
-LangString SORRY_NO_2K ${LANG_TURKISH} "�zg�n�z, Windows 2000 art�k desteklenmiyor. PasswordSafe 3.18'i deneyin"
+LangString SORRY_NO_2K ${LANG_TURKISH} "Üzgünüz, Windows 2000 artýk desteklenmiyor. PasswordSafe 3.18'i deneyin"
 
 ; LangString Icon_description_Uninstall "Password Safe Uninstall"
 LangString Icon_description_Uninstall ${LANG_TURKISH} "Password Safe Uninstall"
 
 ; LangString Icon_description_Help  "Password Safe Help"
 LangString Icon_description_Help ${LANG_TURKISH} "Password Safe Help"
+
+; Screen Capture Protection texts:
+; LangString SCRCAP_PROTECTION "Screen capture protection"
+LangString SCRCAP_PROTECTION ${LANG_TURKISH} "Ekran yakalama koruması"
+
+; LangString SORRY_CANNOT_DISABLE_SCRCAP  "An error occurred disabling screen capture protection. Screen capture protection is not disabled."
+LangString SORRY_CANNOT_DISABLE_SCRCAP ${LANG_TURKISH} "Ekran yakalama koruması devre dışı bırakılırken bir hata oluştu. Ekran yakalama koruması devre dışı değil."
+
+; LangString SORRY_CANNOT_ENABLE_SCRCAP "An error occurred setting screen capture protection to default (enabled)."
+LangString SORRY_CANNOT_ENABLE_SCRCAP ${LANG_TURKISH} "Ekran yakalama koruması varsayılana (etkin) ayarlanırken bir hata oluştu."
+
+; LangString DESC_ScrCapProtection "Enables screen capture protection."
+LangString DESC_ScrCapProtection ${LANG_TURKISH} "Ekran yakalama korumasını etkinleştirir."
 
 ;=================================================================
 ; End of pwsafe_tr.lng

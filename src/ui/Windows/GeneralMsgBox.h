@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -38,7 +38,8 @@
 #pragma once
 
 #include "RichEditCtrlExtn.h"
-#include "PWDialog.h"
+#include <vector>
+#include <tuple>
 
 /////////////////////////////////////////////////////////////////////////////
 // CGeneralMsgBox
@@ -47,17 +48,29 @@ class CGeneralMsgBox : private CDialog
 {
 public:
   // Constructor
-  CGeneralMsgBox(CWnd* pParentWnd = NULL);
+  CGeneralMsgBox(CWnd* pParentWnd = nullptr);
 
   // Destructor
   virtual ~CGeneralMsgBox();
 
   // For Timed MessageBox & Implement MFC equivalents
-  INT_PTR MessageBoxTimeOut(LPCWSTR lpText, LPCWSTR lpCaption = NULL, 
-                     UINT uiFlags = MB_OK, DWORD dwMilliseconds = 0);
-  INT_PTR MessageBox(LPCWSTR lpText, LPCWSTR lpCaption, UINT uiFlags = MB_OK);
-  INT_PTR AfxMessageBox(LPCWSTR lpszText, LPCWSTR lpCaption = NULL, UINT uiFlags = MB_OK);
+  INT_PTR MessageBoxTimeOut(LPCWSTR lpText, LPCWSTR lpCaption = nullptr,
+    UINT uiFlags = MB_OK, DWORD dwMilliseconds = 0);
+  INT_PTR MessageBoxDelayAcceptAnswer(
+    LPCWSTR lpTextBeforeAllowed, LPCWSTR lpTextAfterAllowed,
+    LPCWSTR lpCaption = nullptr,
+    UINT uiFlags = MB_OK, DWORD dwSeconds = 0);
+  INT_PTR MessageBox(LPCWSTR lpText, LPCWSTR lpCaption, UINT uiFlags = MB_OK); // rename, move to private ???
+  INT_PTR AfxMessageBox(LPCWSTR lpszText, LPCWSTR lpCaption = nullptr, UINT uiFlags = MB_OK);
   INT_PTR AfxMessageBox(UINT uiIDPrompt, UINT uiFlags = MB_OK);
+  INT_PTR AfxMessageBox(LPCWSTR lpszText, LPCWSTR lpCaption, const std::vector<std::tuple<int, int>>& tuples, int defBtn = 0, UINT uiIcon = 0);
+  INT_PTR AfxMessageBox(UINT uiIDPrompt, LPCWSTR lpCaption, const std::vector<std::tuple<int, int>>& tuples, int defBtn = 0, UINT uiIcon = 0)
+  {
+    CString cs_text;
+    cs_text.LoadString(uiIDPrompt);
+    return AfxMessageBox(cs_text, lpCaption, tuples, defBtn, uiIcon);
+  }
+
 
   // Execute
   INT_PTR DoModal();
@@ -97,6 +110,10 @@ public:
   // Get a metric (in dialog units)
   int GetMetric(int iMetric);
 
+protected:
+
+  void EnableButtons(bool bEnable);
+
 private:
   // Graphical attributes
   int m_aMetrics[NUM_OF_METRICS];  // basic metrics (dialog units)
@@ -120,6 +137,7 @@ private:
   struct BTNDATA {
     UINT uiIDC;                   // button ID
     CString strBtn;               // button Text
+    bool bWasEnabled;             // track button enabled state
   };
 
   CArray<BTNDATA,const BTNDATA&> m_aBtns;   // buttons' attributes
@@ -140,6 +158,7 @@ private:
   void CreateBtns();
   void CreateIcon();
 
+  void SetGotoDefaultControl();
   void UpdateLayout();
 
   int FromDlgX(int x);
@@ -148,9 +167,15 @@ private:
   // For timed out message
   static DWORD WINAPI ThreadFunction(LPVOID lpParameter);
 
+  void UpdateBeforeAllowedMessage();
+
   DWORD m_dwTimeOut;
   bool m_bTimedOut;
   INT_PTR m_nResult;
+  bool m_bDelayAcceptAnswer;
+  bool m_bTextBeforeAllowedSet;
+  CString m_sTextBeforeAllowed;
+  CString m_sTextAfterAllowed;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -162,9 +187,9 @@ inline void CGeneralMsgBox::SetTitle(LPCWSTR pszTitle)
 inline void CGeneralMsgBox::SetTitle(UINT uiIdTitle)
 { VERIFY(m_strTitle.LoadString(uiIdTitle)); }
 
-inline void CGeneralMsgBox::SetMetric(int iMetric, int nValue)
+inline void CGeneralMsgBox::SetMetric(int iMetric, int xy)
 { ASSERT(0 <= iMetric && iMetric < NUM_OF_METRICS);
-  m_aMetrics[iMetric] = nValue; }
+  m_aMetrics[iMetric] = xy; }
 
 inline int CGeneralMsgBox::GetMetric(int iMetric)
 { ASSERT(0 <= iMetric && iMetric < NUM_OF_METRICS);

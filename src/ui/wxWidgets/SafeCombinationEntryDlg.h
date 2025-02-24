@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -49,12 +49,11 @@ class wxTimer;
 #define ID_ELLIPSIS 10003
 #define ID_COMBINATION 10004
 #define ID_READONLY 10005
-#define ID_SHOWCOMBINATION 10505
 #define ID_NEWDB 10006
 #define ID_YUBIBTN 10229
 #define ID_YUBISTATUS 10230
 #define SYMBOL_SAFECOMBINATIONENTRYDLG_STYLE wxCAPTION|wxRESIZE_BORDER|wxSYSTEM_MENU|wxCLOSE_BOX|wxDIALOG_MODAL|wxTAB_TRAVERSAL
-#define SYMBOL_SAFECOMBINATIONENTRYDLG_TITLE _("Safe Combination Entry")
+#define SYMBOL_SAFECOMBINATIONENTRYDLG_TITLE _("Master Password Entry")
 #define SYMBOL_SAFECOMBINATIONENTRYDLG_IDNAME ID_SAFECOMBINATIONENTRYDLG
 #define SYMBOL_SAFECOMBINATIONENTRYDLG_SIZE wxSize(400, 300)
 #define SYMBOL_SAFECOMBINATIONENTRYDLG_POSITION wxDefaultPosition
@@ -98,9 +97,6 @@ protected:
 
   /// wxEVT_COMMAND_CHECKBOX_CLICKED event handler for ID_READONLY
   void OnReadonlyClick( wxCommandEvent& event );
-
-  /// wxEVT_COMMAND_CHECKBOX_CLICKED event handler for ID_SHOWCOMBINATION
-  void OnShowCombination( wxCommandEvent& event );
 
   /// wxEVT_COMMAND_BUTTON_CLICKED event handler for ID_NEWDB
   void OnNewDbClick( wxCommandEvent& event );
@@ -155,20 +151,17 @@ protected:
 private:
   StringX m_password;
   wxString m_filename;
-  wxString m_ellipsizedFilename = wxEmptyString;
   bool m_readOnly;
   PWScore &m_core;
-  unsigned m_tries = 0;
   bool m_postInitDone = false;
 
 #ifndef NO_YUBI
-  wxTimer* m_pollingTimer = nullptr; // for Yubi, but can't go into mixin :-(
   // Not strictly yubi, but refactored to work with it:
 #endif
-  void ProcessPhrase();
+  bool ProcessPhrase();
   void UpdateReadOnlyCheckbox();
   void UpdateNew(bool isRO);
-  wxString EllipsizeFilePathname(const wxString& filename);
+  void EllipsizeFilePathname();
 };
 
 #endif // _SAFECOMBINATIONENTRYDLG_H_

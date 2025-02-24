@@ -51,6 +51,7 @@
 #define IDS_PWHHELP                     5119
 #define IDS_PASSWORDHELP2               5120
 #define IDS_TRANSPARENCYHELP            5121
+#define IDS_EXCLUDE_FROM_SCR_CAP_HELP   5122
 
 // Program strings
 #define IDS_FILEERROR1                  5210
@@ -159,6 +160,7 @@
 #define IDS_FILEOPENERROR               5319
 #define IDS_CANTOPENREADING             5320
 #define IDS_UNKNOWNERROR                5321
+#define IDS_CONFIRMOLDPHRASE            5322
 #define IDS_NEWFORMAT2                  5323
 #define IDS_VERSIONWARNING              5324
 #define IDS_CANTOPENWRITING             5325
@@ -225,6 +227,7 @@
 #define IDS_OPTBACKUPTITLE              5393
 #define IDS_DEFDBNAME                   5394
 #define IDS_CREATENAME                  5395
+#define IDS_COMPTWOFACTORKEY            5396
 #define IDS_MENUEXPCOLGROUP             5400
 #define IDS_MENUEDITENTRY               5401
 #define IDS_MENUVIEWENTRY               5402
@@ -271,19 +274,7 @@
 #define IDS_RECORDUNKNOWNFIELDS         5450
 #define IDS_IMPORTFILE                  5451
 #define IDS_EXPORTFILE                  5453
-#define IDS_ALIASNOTFOUNDA              5455
-#define IDS_ALIASNOTFOUND0A             5456
-#define IDS_ALIASNOTFOUND0B             5457
-#define IDS_ALIASNOTFOUND1A             5458
-#define IDS_ALIASNOTFOUND1B             5459
-#define IDS_ALIASNOTFOUND2A             5460
-#define IDS_ALIASNOTFOUND2B             5461
-#define IDS_ALIASNOTFOUND2C             5462
-#define IDS_ALIASNOTFOUNDZ              5463
 #define IDS_DDBASEISALIAS               5464
-#define IDS_BASEISALIAS                 5465
-#define IDS_ALIASCANTREFERTOITSELF      5466
-#define IDS_BASEHASNOTITLE              5467
 #define IDS_CLOSE_B4_CHECK              5468
 #define IDS_CONFIRM_CLOSE               5469
 #define IDS_LATEST_VERSION              5470
@@ -306,7 +297,6 @@
 #define IDS_VISIT_WEBSITE               5489
 #define IDS_ICON                        5496
 #define IDS_ABASE_MISSING               5497
-#define IDS_ABASEINVALID                5499
 #define IDS_SBASEINVALID                5500
 #define IDS_MUSTHAVETARGET              5501
 #define IDS_VIEWSHORTCUTS               5502
@@ -747,6 +737,10 @@
 #define IDS_YUBI_UNINITIALIZED          6003
 #define IDS_YUBI_INIT_FAILED            6004
 #define IDS_YUBI_INIT_SUCCESS           6005
+#define IDS_YUBI_SET_FAILED             6006
+#define IDS_YUBI_SET_SUCCESS            6007
+#define IDS_YUBI_SET_DB_SAVE_FAILED     6008
+#define IDS_YUBI_READ_FAIL              6009
 
 #define IDS_STATIC_DB_PREFS_RO_WARNING  6020
 #define IDS_DB_READ_ONLY                6021
@@ -785,3 +779,37 @@
 #define IDS_INCLUDEDBASES               6055
 #define IDS_GC_ONE_CHILD                6060
 #define IDS_GC_N_CHILDREN               6061
+#define IDS_USEANYWAY                   6062
+#define IDS_DISCARD                     6063
+#define IDS_SAVE                        6064
+
+#define IDS_SCRCAP_TT_STATE_ERROR                           6067
+#define IDS_SCRCAP_TT_DISALLOWED_DEFAULT                    6068
+#define IDS_SCRCAP_TT_ALLOWED_DBPREF                        6069
+
+#define IDS_SCRCAP_TT_OVERRIDE_INVALID                      6070
+#define IDS_SCRCAP_TT_OVERRIDE_NONE                         6071
+#define IDS_SCRCAP_TT_OVERRIDE_CMDLINE                      6072
+#define IDS_SCRCAP_TT_OVERRIDE_REGISTRY                     6073
+
+#define IDS_SCRCAP_EXCLUDE_OVERRIDE_WARNING_BEFORE_INVALID  6080
+#define IDS_SCRCAP_EXCLUDE_OVERRIDE_WARNING_BEFORE_NONE     6081
+#define IDS_SCRCAP_EXCLUDE_OVERRIDE_WARNING_BEFORE_CMDLINE  6082
+#define IDS_SCRCAP_EXCLUDE_OVERRIDE_WARNING_BEFORE_REGISTRY 6083
+
+#define IDS_SCRCAP_EXCLUDE_OVERRIDE_WARNING_AFTER_INVALID   6090
+#define IDS_SCRCAP_EXCLUDE_OVERRIDE_WARNING_AFTER_NONE      6091
+#define IDS_SCRCAP_EXCLUDE_OVERRIDE_WARNING_AFTER_CMDLINE   6092
+#define IDS_SCRCAP_EXCLUDE_OVERRIDE_WARNING_AFTER_REGISTRY  6093
+
+#define IDS_ADDEDITERR_INVALID_TOTP_KEY                     6100
+#define IDS_TWOFACTORKEY                                    6101
+#define IDS_TWOFACTORCODEBUTTON_CONFIGURED                  6102
+#define IDS_TWOFACTORCODEBUTTON_NOTCONFIGURED               6103
+#define IDS_TWOFACTORCODESTATIC_CONFIGURED                  6104
+#define IDS_TWOFACTORCODE_COPIED                            6105
+#define IDS_TWOFACTORCODE_ERROR_TITLE                       6106
+#define IDS_TWOFACTORCODE_ERROR_MESSAGE                     6107
+#define IDS_TWOFACTORCODE_ERROR_KEYEMPTY                    6108
+#define IDS_AC_STATIC_TWOFACTORCODE                         6115
+#define IDS_DISPLAYAUTHCODE_TITLEFMT                        6116

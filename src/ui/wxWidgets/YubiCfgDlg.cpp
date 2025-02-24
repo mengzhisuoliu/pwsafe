@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -152,17 +152,17 @@ void YubiCfgDlg::CreateControls()
   itemDialog1->SetSizer(itemBoxSizer2);
 
   wxBoxSizer* itemBoxSizer3 = new wxBoxSizer(wxHORIZONTAL);
-  itemBoxSizer2->Add(itemBoxSizer3, 0, wxALIGN_CENTER_HORIZONTAL|wxALL, 5);
+  itemBoxSizer2->Add(itemBoxSizer3, 0, wxEXPAND|wxALL, 5);
 
   wxStaticText* itemStaticText4 = new wxStaticText( itemDialog1, wxID_STATIC, _("YubiKey Serial Number: "), wxDefaultPosition, wxDefaultSize, 0 );
   itemBoxSizer3->Add(itemStaticText4, 0, wxALIGN_CENTER_VERTICAL|wxALL, 5);
 
   wxTextCtrl* itemTextCtrl5 = new wxTextCtrl( itemDialog1, ID_YK_SERNUM, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_READONLY );
-  itemBoxSizer3->Add(itemTextCtrl5, 0, wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  itemBoxSizer3->Add(itemTextCtrl5, 1, wxEXPAND|wxTOP|wxBOTTOM|wxRIGHT, 5);
 
   wxStaticBox* itemStaticBoxSizer6Static = new wxStaticBox(itemDialog1, wxID_ANY, _("YubiKey Secret Key (20 Byte Hex)"));
   m_SKSizer = new wxStaticBoxSizer(itemStaticBoxSizer6Static, wxVERTICAL);
-  itemBoxSizer2->Add(m_SKSizer, 0, wxEXPAND|wxALL, 5);
+  itemBoxSizer2->Add(m_SKSizer, 1, wxEXPAND|wxALL, 5);
 
   m_SKCtrl = new wxTextCtrl( itemDialog1, ID_YKSK, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_READONLY );
   m_SKSizer->Add(m_SKCtrl, 0, wxEXPAND|wxALL, 5);
@@ -198,7 +198,9 @@ void YubiCfgDlg::CreateControls()
   itemTextCtrl5->SetValidator( wxGenericValidator(& m_yksernum) );
   m_SKCtrl->SetValidator( wxGenericValidator(& m_yksk) );
 ////@end YubiCfgDlg content construction
-  m_pollingTimer->Start(YubiMixin::POLLING_INTERVAL);
+  if (YubiMixin::IsPollingEnabled()) {
+    m_pollingTimer->Start(YubiMixin::GetPollingInterval());
+  }
 }
 
 /*!
@@ -308,7 +310,7 @@ void YubiCfgDlg::ShowSK()
   if (Validate() && TransferDataFromWindow()) {
     m_isSKHidden = false;
     FindWindow(ID_YK_HIDESHOW)->SetLabel(_("Hide"));
-    ShowHideText(m_SKCtrl, m_yksk, m_SKSizer, true);
+    UpdatePasswordTextCtrl(m_SKSizer, m_SKCtrl, m_yksk, nullptr, 0);
   }
 }
 
@@ -317,7 +319,7 @@ void YubiCfgDlg::HideSK()
   if (Validate() && TransferDataFromWindow()) {
     m_isSKHidden = true;
     FindWindow(ID_YK_HIDESHOW)->SetLabel(_("Show"));
-    ShowHideText(m_SKCtrl, m_yksk, m_SKSizer, false);
+    UpdatePasswordTextCtrl(m_SKSizer, m_SKCtrl, m_yksk, nullptr, wxTE_PASSWORD);
   }
 }
 
@@ -353,7 +355,7 @@ void YubiCfgDlg::yubiInserted(void)
 
 void YubiCfgDlg::yubiRemoved(void)
 {
-  m_ykstatus->SetLabel(_("Please insert your YubiKey"));
+  m_ykstatus->SetLabel(_("Insert YubiKey"));
   m_yksernum = m_yksk = wxEmptyString;
   ShowSK();
   FindWindow(ID_YK_SERNUM)->Enable(false);

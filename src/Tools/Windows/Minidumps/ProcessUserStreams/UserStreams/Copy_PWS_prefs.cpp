@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -11,8 +11,7 @@
 
   THIS IS NEEDED "ONLY" TO GET THE PREFERENCE "NAME"
 
-    COPY TAKEN V3.34.2 - LAST CHANGED 2014-08-20
-      SHA-1: 855071b427bc31e7bfb4ddda4043cd9d9ea26c1f
+    COPY TAKEN V3.34.2 - LAST CHANGED 2023-09-05
 
   Note when copying from the core version of PWSprefs.cpp, remove the prefix 'm_' in the following:
   PWSprefs::m_bool_prefs[NumIntPrefs] to PWSprefs::bool_prefs[NumIntPrefs]
@@ -97,6 +96,7 @@ const PWSprefs::boolPref PWSprefs::bool_prefs[NumBoolPrefs] = {
   {_T("UsePrimarySelectionForClipboard"), false, ptApplication}, //application
   {_T("CopyPasswordWhenBrowseToURL"), false, ptDatabase},   // database
   {_T("UseAltAutoType"), false, ptApplication},             //application
+  {_T("ExcludeFromScreenCapture"), true, ptDatabase},       // database
 };
 
 // Default value = -1 means set at runtime

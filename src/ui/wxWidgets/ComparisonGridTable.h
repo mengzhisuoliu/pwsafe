@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -18,13 +18,14 @@
 #include "../../core/DBCompareData.h"
 #include "../../core/UIinterface.h"
 
-// #define CurrentBackgroundColor    *wxWHITE
+// Use different background shades for the currently open file and the one being compared to it.
 #if wxVERSION_NUMBER >= 3103
-#define CurrentBackgroundColor    (wxSystemSettings::GetAppearance().IsUsingDarkBackground() ? wxColor(29, 30, 32) : *wxWHITE)
+#define CurrentBackgroundColor    (wxSystemSettings::GetAppearance().IsDark() ? wxTheColourDatabase->Find("DARK GREY") : wxTheColourDatabase->Find("WHITE"))
+#define ComparisonBackgroundColor (wxSystemSettings::GetAppearance().IsDark() ? wxTheColourDatabase->Find("DIM GREY")  : wxTheColourDatabase->Find("LIGHT GREY"))
 #else
 #define CurrentBackgroundColor    (*wxWHITE)
+#define ComparisonBackgroundColor (*wxWHITE)
 #endif
-#define ComparisonBackgroundColor *wxWHITE
 
 struct SelectionCriteria;
 class PWScore;

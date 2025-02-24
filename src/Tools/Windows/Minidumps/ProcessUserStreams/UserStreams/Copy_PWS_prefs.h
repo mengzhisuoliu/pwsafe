@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -55,6 +55,7 @@ public:
     UsePrimarySelectionForClipboard,  //Only under X-Windows
     CopyPasswordWhenBrowseToURL,
     UseAltAutoType,  //Only under X-Windows
+    ExcludeFromScreenCapture,
     NumBoolPrefs};
 
   enum IntPrefs {Column1Width, Column2Width, Column3Width, Column4Width,

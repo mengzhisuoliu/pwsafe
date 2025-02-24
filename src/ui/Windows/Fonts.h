@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -54,10 +54,14 @@ public:
 
   LONG CalcHeight(const bool bIncludeNotesFont = false) const;
 
+  bool Fonts::CalculateCaptionWidth(CWnd* pWnd, const CString& csCaption, int& cxWidth) const;
+
   std::wstring GetProtectedSymbol(const PWSFont font = TREELIST);
   std::wstring GetAttachmentSymbol(const PWSFont font = TREELIST);
   void VerifySymbolsSupported();
   bool IsSymbolSuported(const Symbol symbol, const PWSFont font = TREELIST);
+
+  static bool CreateFontMatchingWindowHeight(CWnd& wnd, CFont& font, int cMaxCharWidth = 0);
 
 private:
   Fonts();

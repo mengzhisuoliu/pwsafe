@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -10,8 +10,10 @@
 //
 
 #include "stdafx.h"
+#include "ThisMfcApp.h"
 #include "PWStatusBar.h"
 #include "winutils.h"
+#include "ScreenCaptureStateControl.h"
 
 #include "os/debug.h"
 
@@ -50,8 +52,8 @@ CPWStatusBar::CPWStatusBar()
 
   BITMAP bm;
   origBmp.GetBitmap(&bm);
-  m_bmWidth = MulDiv(bm.bmWidth, dpi, 96);
-  m_bmHeight = MulDiv(bm.bmHeight, dpi, 96);
+  m_bmWidth = MulDiv(bm.bmWidth, dpi, WinUtil::defDPI);
+  m_bmHeight = MulDiv(bm.bmHeight, dpi, WinUtil::defDPI);
 
   WinUtil::ResizeBitmap(origBmp, m_FilterBitmap, m_bmWidth, m_bmHeight);
   origBmp.DeleteObject();
@@ -95,6 +97,7 @@ void CPWStatusBar::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 {
   switch (lpDrawItemStruct->itemID) {
     case SB_FILTER:
+    {
       // Attach to a CDC object
       CDC dc;
       dc.Attach(lpDrawItemStruct->hDC);
@@ -113,7 +116,8 @@ void CPWStatusBar::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
         dc.BitBlt(ileft, itop, m_bmWidth, m_bmHeight,
                   &srcDC, 0, 0, SRCCOPY); // BitBlt to pane rect
         srcDC.SelectObject(pOldBitmap);
-      } else {
+      }
+      else {
         dc.FillSolidRect(&rect, ::GetSysColor(COLOR_BTNFACE));
       }
       // Detach from the CDC object, otherwise the hDC will be
@@ -121,6 +125,25 @@ void CPWStatusBar::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
       dc.Detach();
 
       return;
+    }
+    case SB_SCR_CAP:
+    {
+      UINT nIdStateBitmap;
+      UINT nStyle;
+      int cxWidth;
+      GetPaneInfo(SB_SCR_CAP, nIdStateBitmap, nStyle, cxWidth);
+
+      LONG bmWidthDpi; // use m_bmWidth, remove after testing.
+      LONG bmHeightDpi;
+      m_ExcludeCaptureBitmaps.GetBitmapInfo(nIdStateBitmap, nullptr, &bmWidthDpi, &bmHeightDpi);
+
+      CRect rect(&lpDrawItemStruct->rcItem);
+      // Center bitmap.
+      int ileft = rect.left + rect.Width() / 2 - m_bmWidth / 2;
+      int itop = rect.top + rect.Height() / 2 - m_bmHeight / 2;
+      m_ExcludeCaptureBitmaps.BitBltStateBitmap(nIdStateBitmap, ileft, itop, lpDrawItemStruct->hDC);
+      return;
+    }
   }
 
   CStatusBar::DrawItem(lpDrawItemStruct);
@@ -161,6 +184,7 @@ bool CPWStatusBar::ShowToolTip(int nPane, const bool bVisible)
     IDS_SB_TT_MODIFIED   /* SB_MODIFIED        */,
     IDS_SB_TT_MODE       /* SB_READONLY        */,
     IDS_SB_TT_NUMENTRIES /* SB_NUM_ENT         */,
+    IDS_SCRCAP_TT_OVERRIDE_CMDLINE    /* SB_SCR_CAP         */,
     IDS_SB_TT_FILTER     /* SB_FILTER          */};
 
   if (!m_bUseToolTips || !m_bFileOpen)
@@ -171,13 +195,18 @@ bool CPWStatusBar::ShowToolTip(int nPane, const bool bVisible)
     return false;
   }
 
+  UINT nIdToolTipString = uiMsg[nPane];
+
   // Don't show Mode change tooltip if file is R/O on disk
-  if (uiMsg[nPane] == IDS_SB_TT_MODE && m_bFileReadOnly) {
+  if (nIdToolTipString == IDS_SB_TT_MODE && m_bFileReadOnly) {
     return false;
   }
 
+  if (nPane == SB_SCR_CAP)
+    nIdToolTipString = CScreenCaptureStateControl::GetCurrentCaptureStateToolTipStringId();
+
   CString cs_ToolTip;
-  cs_ToolTip.LoadString(uiMsg[nPane]);
+  cs_ToolTip.LoadString(nIdToolTipString);
   m_pSBToolTips->SetWindowText(cs_ToolTip);
 
   CPoint pt;

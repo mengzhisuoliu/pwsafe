@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -33,6 +33,9 @@
 #include "unix/pws_time.h"
 #define _tcsdup(s) wcsdup(s)
 #endif // __FreeBSD__
+#ifdef __OpenBSD__
+#define _tcsdup(s) wcsdup(s)
+#endif // __OpenBSD__
 #include "funcwrap.h"
 #define _tcsncpy(t, s, sc) wcsncpy(t, s, sc)
 #define _tcsncpy_s wcsncpy_s
@@ -42,7 +45,6 @@
 #define _tcsncmp(s1, s2, n) wcsncmp(s1, s2, n)
 #define _tcschr(s, c) wcschr(s, c)
 #define _tcsftime wcsftime
-#define _tasctime_s(s, N, st) pws_os::asctime(s, N, st)
 #define _vsctprintf(fmt, args) vswprintf(NULL, 0, fmt, args)
 #define _vstprintf_s vswprintf_s
 #define _ftprintf fwprintf

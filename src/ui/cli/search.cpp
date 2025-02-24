@@ -1,6 +1,6 @@
 /*
  * Created by Saurav Ghosh on 19/06/16.
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -56,6 +56,8 @@ int SaveAfterSearch(PWScore &core, const UserArgs &ua)
       if ( core.HasDBChanged() ) return core.WriteCurFile();
       break;
     case UserArgs::Print:
+      break;
+    case UserArgs::GenerateTotpCode:
       break;
   }
   return PWScore::SUCCESS;
@@ -233,6 +235,11 @@ int SearchInternal(PWScore &core, const UserArgs &ua, wostream &os)
       return DoSearch<UserArgs::ChangePassword>(core, ua, [&core, &ua](const ItemPtrVec &matches) {
         return ChangePasswordOfSearchResults(matches, core);
       });
+
+    case UserArgs::GenerateTotpCode:
+      return DoSearch<UserArgs::GenerateTotpCode>(core, ua, [&core, &os, &ua](const ItemPtrVec& matches) {
+        return GenerateTotpCodeForSearchResults(matches, core, os, ua.verbosity_level);
+        });
 
     default:
       assert(false);

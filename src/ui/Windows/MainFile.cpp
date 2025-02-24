@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -153,7 +153,7 @@ BOOL DboxMain::OpenOnInit()
       UpdateSystemTray(UNLOCKED);
       break;
     case PWScore::CANT_OPEN_FILE:
-      if (!m_core.IsDbOpen()) {
+      if (!m_core.IsDbFileSet()) {
         // Empty filename. Assume they are starting Password Safe
         // for the first time and don't confuse them.
         // fall through to New()
@@ -248,7 +248,7 @@ BOOL DboxMain::OpenOnInit()
     SetDCAText();
   }
 
-  PostOpenProcessing();
+ 
 
   // Now get window sizes
   PWSprefs::GetInstance()->GetPrefRect(rect.top, rect.bottom, rect.left, rect.right);
@@ -266,6 +266,8 @@ BOOL DboxMain::OpenOnInit()
     PlaceWindow(this, &rect, SW_HIDE);
   }
   ::DeleteObject(hrgnWork);
+
+  PostOpenProcessing(); // Need to call this after window's positioned since UpdateForceAllowCaptureHandling() displays window
 
   bool bFileIsReadOnly;
   pws_os::FileExists(m_core.GetCurFile().c_str(), bFileIsReadOnly);
@@ -287,16 +289,25 @@ void DboxMain::OnNew()
   New();
 }
 
+static INT_PTR AskSaveDatabase(const StringX &curFile)
+{
+  CGeneralMsgBox gmb;
+  CString cs_temp;
+  cs_temp.Format(IDS_SAVEDATABASE, curFile.c_str());
+  std::vector<std::tuple<int, int>> tuples = {
+    std::make_tuple(IDNO, IDS_DISCARD),
+    std::make_tuple(IDCANCEL, IDS_CANCEL),
+    std::make_tuple(IDYES, IDS_SAVE)
+  };
+  return gmb.AfxMessageBox(cs_temp, AfxGetAppName(), tuples, 2, MB_ICONQUESTION);
+}
+
 int DboxMain::New()
 {
   INT_PTR rc, rc2;
 
   if (!m_core.IsReadOnly() && !m_bUserDeclinedSave && m_core.HasDBChanged()) {
-    CGeneralMsgBox gmb;
-    CString cs_temp;
-    cs_temp.Format(IDS_SAVEDATABASE, static_cast<LPCWSTR>(m_core.GetCurFile().c_str()));
-    rc = gmb.MessageBox(cs_temp, AfxGetAppName(),
-                             MB_YESNOCANCEL | MB_ICONQUESTION);
+    rc = AskSaveDatabase(m_core.GetCurFile());
     switch (rc) {
       case IDCANCEL:
         return PWScore::USER_CANCEL;
@@ -360,6 +371,7 @@ int DboxMain::New()
 
   UpdateMenuAndToolBar(true);
   UpdateStatusBar();
+  SetFindToolBar(PWSprefs::GetInstance()->GetPref(PWSprefs::FindToolBarActive));
 
   // Set timer for user-defined idle lockout, if selected (DB preference)
   KillTimer(TIMER_LOCKDBONIDLETIMEOUT);
@@ -383,7 +395,7 @@ int DboxMain::NewFile(StringX &newfilename)
   CString cf(MAKEINTRESOURCE(IDS_DEFDBNAME)); // reasonable default for first time user
   std::wstring newFileName = PWSUtil::GetNewFileName(LPCWSTR(cf), DEFAULT_SUFFIX);
   std::wstring dir;
-  if (!m_core.IsDbOpen())
+  if (!m_core.IsDbFileSet())
     dir = PWSdirs::GetSafeDir();
   else {
     std::wstring cdrive, cdir, dontCare;
@@ -545,7 +557,7 @@ int DboxMain::Close(const bool bTrySave)
   m_titlebar = L"Password Safe";
   SetWindowText(LPCWSTR(m_titlebar));
   m_lastclipboardaction = L"";
-  m_ilastaction = 0;
+  m_ilastaction.Clear();
   UpdateStatusBar();
 
   m_StatusBar.SetFileStatus(false, false);
@@ -563,6 +575,14 @@ int DboxMain::Close(const bool bTrySave)
 
   // Update Minidump user streams
   app.SetMinidumpUserStreams(m_bOpen, !IsDBReadOnly());
+
+  // No database is open or locked, revert pwsafe DB preferences to defaults.
+  prefs->SetDatabasePrefsToDefaults(false);
+  prefs->SetDatabasePrefsToDefaults(true);
+
+  // Since this main pwsafe window is already active, revert to default for
+  // ExcludeFromScreenCapture. New dialogs/windows will use the DB default.
+  UpdateForceAllowCaptureHandling();
 
   return PWScore::SUCCESS;
 }
@@ -622,7 +642,7 @@ int DboxMain::Open(const UINT uiTitle)
   StringX sx_Filename;
   CString cs_text(MAKEINTRESOURCE(uiTitle));
   std::wstring DBpath, cdrive, cdir, dontCare;
-  if (!m_core.IsDbOpen()) {
+  if (!m_core.IsDbFileSet()) {
     // Can't use same directory as currently open DB as there isn't one.
     // Attempt to get path from last opened database from MRU
     // If valid and accessible, use it, if not valid or not accessible use
@@ -886,7 +906,7 @@ exit:
 void DboxMain::PostOpenProcessing()
 {
   PWS_LOGIT;
-
+  
   // Force prior format versions to be read-only
   if (m_core.GetReadFileVersion() < PWSfile::VCURRENT) {
     m_core.SetReadOnly(true);
@@ -924,11 +944,34 @@ void DboxMain::PostOpenProcessing()
   UpdateToolBarROStatus(m_core.IsReadOnly());
   UpdateToolBarDoUndo(); // BR1466
   UpdateStatusBar();
+  SetFindToolBar(PWSprefs::GetInstance()->GetPref(PWSprefs::FindToolBarActive));
 
   CheckExpireList(true);
   TellUserAboutExpiredPasswords();
 
   m_RUEList.SetRUEList(m_core.GetRUEList());
+
+  // Set filter view, if one was saved
+  const auto savedFilter = PWSprefs::GetInstance()->GetPref(PWSprefs::ActiveFilterName);
+
+  if (!savedFilter.empty())
+  {
+    m_currentfilterpool = FilterPool::FPOOL_DATABASE; // Is this always right?
+    m_selectedfiltername = savedFilter.c_str();
+    
+    // add only saved filter to m_mapAllFilters for ApplyFilter to work
+    const PWSFilters core_filters = m_core.GetDBFilters();
+    
+    for (const auto& filter : core_filters) {
+      if (filter.first.cs_filtername.c_str() == m_selectedfiltername) {
+        m_MapAllFilters.emplace(filter.first, filter.second);
+        break;  // there should be at most one match
+      }
+    }
+
+    ApplyFilter(true);
+  }
+
 
   // Set timer for user-defined idle lockout, if selected (DB preference)
   KillTimer(TIMER_LOCKDBONIDLETIMEOUT);
@@ -954,6 +997,8 @@ void DboxMain::PostOpenProcessing()
   m_iListHBarPos = m_iTreeHBarPos = 0;
   m_ctlItemList.Scroll(CSize(SB_HORZ, 0));
   m_ctlItemTree.SetScrollPos(SB_HORZ, 0);
+
+  UpdateForceAllowCaptureHandling();
 }
 
 int DboxMain::CheckEmergencyBackupFiles(StringX sx_Filename, StringX &passkey)
@@ -1256,7 +1301,7 @@ int DboxMain::SaveIfChanged()
   /*
     Save silently (without asking user) iff:
     1. NOT read-only AND
-    2. (timestamp updates OR tree view display vector changed) AND
+    2. (timestamp updates OR tree view display vector changed OR DB pref) AND
     3. Database NOT empty
 
     Less formally:
@@ -1291,7 +1336,8 @@ int DboxMain::SaveIfChanged()
   // Here we save the DB if the DB has at least one entry or empty group AND:
   //  Entry Access Times have been changed OR
   //  The Group Display has changed and the User specified to use it at open time OR
-  //  RUE list has changed and the user wants them saved
+  //  RUE list has changed and the user wants them saved OR
+  //  A DB preference has changed (added for persisting active filter)
   PWSprefs *prefs = PWSprefs::GetInstance();
   if (!m_bUserDeclinedSave &&
       (m_bEntryTimestampsChanged || 
@@ -1299,7 +1345,8 @@ int DboxMain::SaveIfChanged()
             m_core.HasGroupDisplayChanged()) ||
        (prefs->GetPref(PWSprefs::MaxREItems) > 0 &&
             m_core.HasRUEListChanged())) &&
-      (m_core.GetNumEntries() > 0 || m_core.GetNumberEmptyGroups() > 0)) {
+      (m_core.GetNumEntries() > 0 || m_core.GetNumberEmptyGroups() > 0) ||
+      prefs->IsDBprefsChanged()) {
     int rc = Save();
 
     if (rc != PWScore::SUCCESS)
@@ -1315,10 +1362,8 @@ int DboxMain::SaveIfChanged()
   if (m_core.HasDBChanged()) {
     CGeneralMsgBox gmb;
     INT_PTR rc, rc2;
-    CString cs_temp;
-    cs_temp.Format(IDS_SAVEDATABASE, static_cast<LPCWSTR>(m_core.GetCurFile().c_str()));
-    rc = gmb.MessageBox(cs_temp, AfxGetAppName(),
-                            MB_YESNOCANCEL | MB_ICONQUESTION);
+
+    rc = AskSaveDatabase(m_core.GetCurFile());
     switch (rc) {
       case IDCANCEL:
         return PWScore::USER_CANCEL;
@@ -1397,7 +1442,7 @@ int DboxMain::SaveAs()
                 current_version == PWSfile::V40 ? V4_SUFFIX : V3_SUFFIX);
 
   std::wstring dir;
-  if (!m_core.IsDbOpen())
+  if (!m_core.IsDbFileSet())
     dir = PWSdirs::GetSafeDir();
   else {
     std::wstring cdrive, cdir, dontCare;
@@ -1413,7 +1458,7 @@ int DboxMain::SaveAs()
                         OFN_LONGNAMES | OFN_OVERWRITEPROMPT,
                         CString(MAKEINTRESOURCE(current_version == PWSfile::V40 ? IDS_FDF_V4_ALL : IDS_FDF_V3_ALL)),
                      this);
-    if (!m_core.IsDbOpen())
+    if (!m_core.IsDbFileSet())
       cs_text.LoadString(IDS_NEWNAME1);
     else
       cs_text.LoadString(IDS_NEWNAME2);
@@ -1582,7 +1627,7 @@ void DboxMain::OnExportVx(UINT nID)
   cs_text.LoadString(IDS_NAMEEXPORTFILE);
 
   std::wstring dir;
-  if (!m_core.IsDbOpen())
+  if (!m_core.IsDbFileSet())
     dir = PWSdirs::GetSafeDir();
   else {
     std::wstring cdrive, cdir, dontCare;
@@ -2285,7 +2330,7 @@ void DboxMain::OnImportText()
   CString cs_text;
 
   std::wstring dir;
-  if (!m_core.IsDbOpen())
+  if (!m_core.IsDbFileSet())
     dir = PWSdirs::GetSafeDir();
   else {
     std::wstring cdrive, cdir, dontCare;
@@ -2439,7 +2484,7 @@ void DboxMain::OnImportKeePassV1CSV()
   CString cs_title, cs_msg;
   cs_title.LoadString(IDS_PICKKEEPASSFILE);
   std::wstring dir;
-  if (!m_core.IsDbOpen())
+  if (!m_core.IsDbFileSet())
     dir = PWSdirs::GetSafeDir();
   else {
     std::wstring cdrive, cdir, dontCare;
@@ -2546,7 +2591,7 @@ void DboxMain::OnImportKeePassV1TXT()
   CString cs_title, cs_msg;
   cs_title.LoadString(IDS_PICKKEEPASSFILE);
   std::wstring dir;
-  if (!m_core.IsDbOpen())
+  if (!m_core.IsDbFileSet())
     dir = PWSdirs::GetSafeDir();
   else {
     std::wstring cdrive, cdir, dontCare;
@@ -2682,7 +2727,7 @@ void DboxMain::OnImportXML()
 
   std::wstring ImportedPrefix(dlg.m_groupName);
   std::wstring dir;
-  if (!m_core.IsDbOpen())
+  if (!m_core.IsDbFileSet())
     dir = PWSdirs::GetSafeDir();
   else {
     std::wstring cdrive, cdir, dontCare;
@@ -2759,7 +2804,7 @@ void DboxMain::OnImportXML()
         }
 
         if (!strXMLErrors.empty() ||
-            numRenamed > 0 || numPWHErrors > 0) {
+            numRenamed > 0 || numPWHErrors > 0 || numSkipped > 0) {
           if (!strXMLErrors.empty())
             csErrors = strXMLErrors + L"\n";
 
@@ -2935,7 +2980,7 @@ bool DboxMain::ChangeMode(bool promptUser)
     // Taken from GetAndCheckPassword.
     // We don't want all the other processing that GetAndCheckPassword does
     CPasskeyEntry PasskeyEntryDlg(this, m_core.GetCurFile().c_str(),
-      GCP_CHANGEMODE, true, false, false, true);
+      GCP_CHANGEMODE, true, false, false, true, false);
 
     INT_PTR rc = PasskeyEntryDlg.DoModal();
     if (rc != IDOK)
@@ -3049,7 +3094,7 @@ void DboxMain::OnChangeMode()
 
 void DboxMain::OnCompare()
 {
-  if (!m_core.IsDbOpen() || m_core.GetNumEntries() == 0) {
+  if (!m_core.IsDbFileSet() || m_core.GetNumEntries() == 0) {
     CGeneralMsgBox gmb;
     gmb.AfxMessageBox(IDS_NOCOMPAREFILE, MB_OK | MB_ICONWARNING);
     return;
@@ -3097,7 +3142,7 @@ void DboxMain::OnMerge()
 void DboxMain::OnSynchronize()
 {
   // disable in read-only mode or empty
-  if (m_core.IsReadOnly() || !m_core.IsDbOpen() || m_core.GetNumEntries() == 0)
+  if (m_core.IsReadOnly() || !m_core.IsDbFileSet() || m_core.GetNumEntries() == 0)
     return;
 
   CWZPropertySheet wizard(ID_MENUITEM_SYNCHRONIZE,
@@ -3551,6 +3596,11 @@ LRESULT DboxMain::OnDroppedFile(WPARAM /* wParam */, LPARAM /* lParam */)
   return 0;
 }
 
+LRESULT DboxMain::OnInvokeUiThread(WPARAM wParam, LPARAM /* lParam */)
+{
+  return OnHandleInvokeMessage(wParam);
+}
+
 LRESULT DboxMain::ViewCompareResult(PWScore *pcore, const CUUID &entryUUID)
 {
   ItemListIter pos = pcore->Find(entryUUID);
@@ -3709,33 +3759,9 @@ LRESULT DboxMain::SynchCompareResult(PWScore *pfromcore, PWScore *ptocore,
 
   MultiCommands *pmulticmds = MultiCommands::Create(ptocore);
 
-  bool bUpdated(false);
-  for (size_t i = 0; i < m_SaveAdvValues[CAdvancedDlg::COMPARESYNCH].bsFields.size(); i++) {
-    if (m_SaveAdvValues[CAdvancedDlg::COMPARESYNCH].bsFields.test(i)) {
-      const StringX sxValue = pfromEntry->GetFieldValue((CItemData::FieldType)i);
-
-      // Special processing for password policies (default & named)
-      if ((CItemData::FieldType)i == CItemData::POLICYNAME) {
-        // Don't really need the map and vector as only sync'ing 1 entry
-        std::map<StringX, StringX> mapRenamedPolicies;
-        std::vector<StringX> vs_PoliciesAdded;
-
-        const StringX sxSync_DateTime = PWSUtil::GetTimeStamp(true).c_str();
-        StringX sxPolicyName = pfromEntry->GetPolicyName();
-
-        Command *pPolicyCmd = ptocore->ProcessPolicyName(pfromcore, updtEntry,
-             mapRenamedPolicies, vs_PoliciesAdded, sxPolicyName, bUpdated,
-             sxSync_DateTime, IDSC_SYNCPOLICY);
-        if (pPolicyCmd != NULL)
-          pmulticmds->Add(pPolicyCmd);
-      } else {
-        if (sxValue != updtEntry.GetFieldValue((CItemData::FieldType)i)) {
-          bUpdated = true;
-          updtEntry.SetFieldValue((CItemData::FieldType)i, sxValue);
-        }
-      }
-    }
-  }
+   bool bUpdated = ptocore->SyncItem(*pfromEntry, updtEntry,
+                                     m_SaveAdvValues[CAdvancedDlg::COMPARESYNCH].bsFields,
+                                     *pmulticmds, pfromcore);
 
   if (bUpdated) {
     updtEntry.SetStatus(CItemData::ES_MODIFIED);
@@ -4011,7 +4037,7 @@ void DboxMain::SavePreferencesOnExit()
     // Naughty Windows saves information in the registry for every Open and Save!
     RegistryAnonymity();
   } else
-    if (m_core.IsDbOpen()) {
+    if (m_core.IsDbFileSet()) {
       std::wstring curFile = m_core.GetCurFile().c_str();
       WinUtil::RelativizePath(curFile);
       prefs->SetPref(PWSprefs::CurrentFile, curFile.c_str());
@@ -4349,12 +4375,12 @@ void DboxMain::ReportAdvancedOptions(CReport *pRpt, const bool bAdvanced, const 
 
     cs_buffer = L"\t";
     // Non-time fields
-    int ifields[] = {CItemData::PASSWORD, CItemData::NOTES, CItemData::URL,
+    int ifields[] = {CItemData::PASSWORD, CItemData::TWOFACTORKEY, CItemData::NOTES, CItemData::URL,
                      CItemData::AUTOTYPE, CItemData::PWHIST, CItemData::POLICY,
                      CItemData::RUNCMD, CItemData::DCA, CItemData::SHIFTDCA, CItemData::EMAIL,
                      CItemData::PROTECTED, CItemData::SYMBOLS, CItemData::POLICYNAME,
                      CItemData::KBSHORTCUT, CItemData::ATTREF};
-    UINT uimsgids[] = {IDS_COMPPASSWORD, IDS_COMPNOTES, IDS_COMPURL,
+    UINT uimsgids[] = {IDS_COMPPASSWORD, IDS_COMPTWOFACTORKEY, IDS_COMPNOTES, IDS_COMPURL,
                        IDS_COMPAUTOTYPE, IDS_COMPPWHISTORY, IDS_COMPPWPOLICY,
                        IDS_COMPRUNCOMMAND, IDS_COMPDCA, IDS_COMPSHIFTDCA, IDS_COMPEMAIL,
                        IDS_COMPPROTECTED, IDS_COMPSYMBOLS, IDS_COMPPOLICYNAME,

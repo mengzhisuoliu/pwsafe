@@ -2,7 +2,7 @@
  * Initial version created by Rony Shapiro 
  * on Wed 14 Jan 2009 10:11:39 PM IST.
  * 
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -64,17 +64,19 @@ public:
   void Init();
 
   /// Initialises the application
-  virtual bool OnInit();
+  virtual bool OnInit() wxOVERRIDE;
 
   /// Handle asserts without showing the assert dialog until locale is initialized.
 #ifdef __WXDEBUG__
-  virtual void OnAssertFailure(const wxChar *file, int line, const wxChar *func, const wxChar *cond, const wxChar *msg);
+  virtual void OnAssertFailure(const wxChar *file, int line, const wxChar *func, const wxChar *cond, const wxChar *msg) wxOVERRIDE;
 #endif
   /// Called on exit
-  virtual int OnExit();
+  virtual int OnExit() wxOVERRIDE;
 
 ////@begin PWSafeApp event handler declarations
-
+#ifdef __WXMAC__
+  virtual void MacNewFile() wxOVERRIDE;
+#endif // __WXMAC__
 ////@end PWSafeApp event handler declarations
 
 ////@begin PWSafeApp member function declarations
@@ -94,7 +96,7 @@ public:
   void RestoreFrameCoords(void);
 
   //virtual override from some ancestor, to handle Help commands from all windows
-  virtual int FilterEvent(wxEvent& evt);
+  virtual int FilterEvent(wxEvent& evt) wxOVERRIDE;
 
   wxIconBundle GetAppIcons() const { return m_appIcons; }
 

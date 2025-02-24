@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -21,11 +21,14 @@
 
 #include "core/PWSprefs.h"
 #include "core/PWSAuxParse.h"
+#include "core/TotpCore.h"
 
 #include "core/core.h"
 #include "resource3.h"
 
 using pws_os::CUUID;
+
+static wchar_t PSSWDCHAR = L'*';
 
 ////////////////////////////////////////////////////////////////////////////
 // CAddEdit_Additional property page
@@ -38,7 +41,8 @@ CAddEdit_Additional::CAddEdit_Additional(CWnd * pParent, st_AE_master_data *pAEM
                           pAEMD),
   m_iSortedColumn(-1), m_bSortAscending(true), m_bClearPWHistory(false),
   m_bInitdone(false),
-  m_bWarnUserKBShortcut(false), m_iOldHotKey(0)
+  m_bWarnUserKBShortcut(false), m_iOldHotKey(0),
+  m_isTwoFactorKeyHidden(true)
 {
   if (M_MaxPWHistory() == 0)
     M_MaxPWHistory() = PWSprefs::GetInstance()->
@@ -55,11 +59,15 @@ CAddEdit_Additional::CAddEdit_Additional(CWnd * pParent, st_AE_master_data *pAEM
   } else {
     m_bAppHotKeyEnabled = PWSprefs::GetInstance()->GetPref(PWSprefs::HotKeyEnabled);
   }
+
+  m_twofactorkey = M_twofactorkey();
 }
 
 void CAddEdit_Additional::DoDataExchange(CDataExchange* pDX)
 {
   CAddEdit_PropertyPage::DoDataExchange(pDX);
+
+  m_ex_twofactorkey.DoDDX(pDX, m_twofactorkey);
 
   //{{AFX_DATA_MAP(CAddEdit_Additional)
   DDX_Text(pDX, IDC_AUTOTYPE, static_cast<CString&>(M_autotype()));
@@ -85,6 +93,9 @@ void CAddEdit_Additional::DoDataExchange(CDataExchange* pDX)
 
   DDX_Control(pDX, IDC_AUTOTYPEHELP, m_Help1);
   DDX_Control(pDX, IDC_PWHHELP, m_Help2);
+
+  DDX_Control(pDX, IDC_TWOFACTORKEY, m_ex_twofactorkey);
+
   //}}AFX_DATA_MAP
 }
 
@@ -110,6 +121,10 @@ BEGIN_MESSAGE_MAP(CAddEdit_Additional, CAddEdit_PropertyPage)
 
   ON_NOTIFY(HDN_ITEMCLICK, 0, OnHeaderClicked)
   ON_NOTIFY(NM_CLICK, IDC_PWHISTORY_LIST, OnHistListClick)
+  
+  ON_EN_CHANGE(IDC_TWOFACTORKEY, OnTwoFactorKeyChanged)
+  ON_BN_CLICKED(IDC_SHOW_2FAKEY, OnShowTwoFactorKey)
+
   // Common
   ON_MESSAGE(PSM_QUERYSIBLINGS, OnQuerySiblings)
   //}}AFX_MSG_MAP
@@ -144,6 +159,8 @@ BOOL CAddEdit_Additional::OnInitDialog()
   m_ex_autotype.SetFont(pFont);
   m_ex_runcommand.SetFont(pFont);
 
+  pFonts->ApplyPasswordFont(&m_ex_twofactorkey);
+
   m_stc_warning.SetColour(RGB(255, 0, 0));
   m_stc_warning.ShowWindow(SW_HIDE);
 
@@ -155,13 +172,6 @@ BOOL CAddEdit_Additional::OnInitDialog()
     cs_dats.Format(IDS_DEFAULTAUTOTYPE, static_cast<LPCWSTR>(sx_dats.c_str()));
 
   GetDlgItem(IDC_DEFAULTAUTOTYPE)->SetWindowText(cs_dats);
-
-  if (InitToolTip()) {
-    AddTool(IDC_STATIC_AUTO, IDS_CLICKTOCOPYEXPAND);
-    AddTool(IDC_STATIC_RUNCMD, IDS_CLICKTOCOPYEXPAND);
-    AddTool(IDC_ENTKBSHCTHOTKEY, IDS_KBS_TOOLTIP0);
-    ActivateToolTip();
-  }
 
   m_stc_autotype.SetHighlight(true, CAddEdit_PropertyPage::crefWhite);
   m_stc_runcommand.SetHighlight(true, CAddEdit_PropertyPage::crefWhite);
@@ -185,6 +195,8 @@ BOOL CAddEdit_Additional::OnInitDialog()
   if (M_uicaller() == IDS_VIEWENTRY || M_protected() != 0) {
     // Disable normal Edit controls
     GetDlgItem(IDC_AUTOTYPE)->SendMessage(EM_SETREADONLY, TRUE, 0);
+    GetDlgItem(IDC_TWOFACTORKEY)->SendMessage(EM_SETREADONLY, TRUE, 0);
+
     GetDlgItem(IDC_RUNCMD)->SendMessage(EM_SETREADONLY, TRUE, 0);
 
     // Disable HotKey
@@ -216,6 +228,7 @@ BOOL CAddEdit_Additional::OnInitDialog()
   // Password History
   M_oldMaxPWHistory() = M_MaxPWHistory();
 
+  GetDlgItem(IDC_STATIC_OLDPW1)->EnableWindow(M_SavePWHistory());
   GetDlgItem(IDC_MAXPWHISTORY)->EnableWindow(M_SavePWHistory());
 
   auto pspin = static_cast<CSpinButtonCtrl*>(GetDlgItem(IDC_PWHSPIN));
@@ -247,6 +260,12 @@ BOOL CAddEdit_Additional::OnInitDialog()
     // Note: clicking on IDC_AUTOTYPEHELP opens AutoType Help rather than
     // showing a Tooltip
 
+    // Old style tooltips
+    AddTool(IDC_STATIC_AUTO, IDS_CLICKTOCOPYEXPAND);
+    AddTool(IDC_STATIC_RUNCMD, IDS_CLICKTOCOPYEXPAND);
+    AddTool(IDC_ENTKBSHCTHOTKEY, IDS_KBS_TOOLTIP0);
+    AddTool(IDC_TWOFACTORKEY, IDS_TWOFACTORKEY);
+
     ActivateToolTip();
   } else {
     m_Help1.EnableWindow(FALSE);
@@ -258,6 +277,7 @@ BOOL CAddEdit_Additional::OnInitDialog()
   UpdatePasswordHistoryLC();
 
   if (M_uicaller() == IDS_VIEWENTRY || M_protected() != 0) {
+    GetDlgItem(IDC_STATIC_OLDPW1)->EnableWindow(FALSE);
     GetDlgItem(IDC_MAXPWHISTORY)->EnableWindow(FALSE);
     GetDlgItem(IDC_PWHSPIN)->EnableWindow(FALSE);
     GetDlgItem(IDC_SAVE_PWHIST)->EnableWindow(FALSE);
@@ -695,6 +715,24 @@ BOOL CAddEdit_Additional::OnApply()
     }
   }
 
+  if (!M_twofactorkey().IsEmpty()) {
+    // Validate two factor key.
+    // Currently, only the base32-encoded key is a non-default.
+    // All other CItemData TOTP parameter use default settings.
+    CItemData ci_temp;
+    ci_temp.SetTwoFactorKey(M_twofactorkey());
+    PWSTotp::TOTP_Result totp_result = PWSTotp::ValidateTotpConfiguration(ci_temp);
+    if (totp_result != PWSTotp::Success) {
+      CGeneralMsgBox gmb;
+      CString csTitle(MAKEINTRESOURCE(IDS_TWOFACTORCODE_ERROR_TITLE));
+      CString csText;
+      csText.Format(IDS_ADDEDITERR_INVALID_TOTP_KEY, PWSTotp::GetTotpErrorString(totp_result).c_str());
+      gmb.AfxMessageBox(csText, csTitle);
+      pFocus = GetDlgItem(IDC_TWOFACTORKEY);
+      goto error;
+    }
+  }
+
   /* Handle history header.
    *
    * Header is in the form fmmnn, where:
@@ -774,7 +812,7 @@ void CAddEdit_Additional::OnSTCExClicked(UINT nID)
 {
   UpdateData(TRUE);
   StringX sxData;
-  int iaction(0);
+  ClipboardDataSource cds;
   std::vector<size_t> vactionverboffsets;
 
   // NOTE: These values must be contiguous in "resource.h"
@@ -794,6 +832,7 @@ void CAddEdit_Additional::OnSTCExClicked(UINT nID)
           sxData = static_cast<LPCWSTR>(M_autotype());
       } else {
         CSecString sPassword(M_realpassword()), sLastPassword(M_lastpassword());
+        const CSecString stotpauthcode = m_AEMD.pci->GetTotpAuthCode();
         if (m_AEMD.pci->IsAlias()) {
           CItemData *pciA = m_AEMD.pcore->GetBaseEntry(m_AEMD.pci);
           ASSERT(pciA != NULL);
@@ -810,6 +849,7 @@ void CAddEdit_Additional::OnSTCExClicked(UINT nID)
                                                 M_notes(),
                                                 M_URL(),
                                                 M_email(),
+                                stotpauthcode,
                                                 vactionverboffsets);
 
         // Replace any special code that we can - i.e. only \{\t} and \{ }
@@ -818,7 +858,7 @@ void CAddEdit_Additional::OnSTCExClicked(UINT nID)
         Replace(sxData, sxTabCode, sxTab);
         Replace(sxData, sxSpaceCode, sxSpace);
       }
-      iaction = CItemData::AUTOTYPE;
+      cds = CItemData::AUTOTYPE;
       break;
     case IDC_STATIC_RUNCMD:
       m_stc_runcommand.FlashBkgnd(CAddEdit_PropertyPage::crefGreen);
@@ -850,21 +890,23 @@ void CAddEdit_Additional::OnSTCExClicked(UINT nID)
           gmb.MessageBox(cs_errmsg, cs_title, MB_ICONERROR);
         }
       }
-      iaction = CItemData::RUNCMD;
+      cds = CItemData::RUNCMD;
       break;
     default:
       ASSERT(0);
   }
   GetMainDlg()->SetClipboardData(sxData);
-  GetMainDlg()->UpdateLastClipboardAction(iaction);
+  GetMainDlg()->UpdateLastClipboardAction(cds);
 }
 
 void CAddEdit_Additional::OnCheckedSavePasswordHistory()
 {
   M_SavePWHistory() = static_cast<CButton*>(GetDlgItem(IDC_SAVE_PWHIST))->GetCheck() == BST_CHECKED ?
                            TRUE : FALSE;
+  GetDlgItem(IDC_STATIC_OLDPW1)->EnableWindow(M_SavePWHistory());
   GetDlgItem(IDC_MAXPWHISTORY)->EnableWindow(M_SavePWHistory());
   GetDlgItem(IDC_PWHSPIN)->EnableWindow(M_SavePWHistory());
+  GetDlgItem(IDC_STATIC_OLDPW1)->EnableWindow(M_SavePWHistory());
 
   Invalidate();
   m_ae_psh->SetChanged(true);
@@ -963,7 +1005,7 @@ void CAddEdit_Additional::OnPWHCopyAll()
   }
 
   GetMainDlg()->SetClipboardData(HistStr);
-  GetMainDlg()->UpdateLastClipboardAction(CItemData::RESERVED);
+  GetMainDlg()->UpdateLastClipboardAction(ClipboardDataSource::PasswordHistoryList);
 }
 
 void CAddEdit_Additional::OnHistListClick(NMHDR *pNMHDR, LRESULT *pResult)
@@ -977,7 +1019,7 @@ void CAddEdit_Additional::OnHistListClick(NMHDR *pNMHDR, LRESULT *pResult)
 
     // Note use of CItemData::RESERVED for indicating in the
     // Status bar that an old password has been copied
-    GetMainDlg()->UpdateLastClipboardAction(CItemData::RESERVED); 
+    GetMainDlg()->UpdateLastClipboardAction(ClipboardDataSource::PasswordHistoryList);
   }
   *pResult = 0;
 }
@@ -1033,11 +1075,12 @@ void CAddEdit_Additional::UpdatePasswordHistoryLC()
 
   // Don't enable change of PWH if an alias as passwords are now the base's.
   if (M_original_entrytype() == CItemData::ET_ALIAS) {
+    GetDlgItem(IDC_STATIC_OLDPW1)->EnableWindow(FALSE);
     GetDlgItem(IDC_MAXPWHISTORY)->EnableWindow(FALSE);
     GetDlgItem(IDC_PWHSPIN)->EnableWindow(FALSE);
     GetDlgItem(IDC_SAVE_PWHIST)->EnableWindow(FALSE);
-    GetDlgItem(IDC_CLEAR_PWHIST)->EnableWindow(FALSE);
     GetDlgItem(IDC_STATIC_OLDPW1)->EnableWindow(FALSE);
+    GetDlgItem(IDC_CLEAR_PWHIST)->EnableWindow(FALSE);
   } else {
     GetDlgItem(IDC_CLEAR_PWHIST)->EnableWindow(bEntriesPresent);
   }
@@ -1049,4 +1092,46 @@ void CAddEdit_Additional::UpdatePasswordHistoryLC()
   // Help no longer needed
   m_Help2.EnableWindow(bEntriesPresent ? TRUE : FALSE);
   m_Help2.ShowWindow(bEntriesPresent ? SW_SHOW : SW_HIDE);
+}
+
+void CAddEdit_Additional::OnTwoFactorKeyChanged()
+{
+  UpdateData(TRUE);
+  m_ae_psh->SetChanged(true);
+  M_twofactorkey() = m_twofactorkey;
+}
+
+void CAddEdit_Additional::OnShowTwoFactorKey()
+{
+  // Prevent special OnCommand processing
+  UpdateData(TRUE);
+
+  if (m_isTwoFactorKeyHidden) {
+    ShowTwoFactorKey();
+  }
+  else {
+    M_twofactorkey() = m_twofactorkey; // save visible password
+
+    HideTwoFactorKey();
+  }
+  UpdateData(FALSE);
+}
+
+void CAddEdit_Additional::ShowTwoFactorKey()
+{
+  m_isTwoFactorKeyHidden = false;
+  GetDlgItem(IDC_SHOW_2FAKEY)->SetWindowText(CString(MAKEINTRESOURCE(IDS_HIDEPASSWORDTXT)));
+  m_twofactorkey = M_twofactorkey();
+  m_ex_twofactorkey.SetSecure(false);
+  m_ex_twofactorkey.SetPasswordChar(0);
+  m_ex_twofactorkey.Invalidate();
+}
+
+void CAddEdit_Additional::HideTwoFactorKey()
+{
+  m_isTwoFactorKeyHidden = true;
+  GetDlgItem(IDC_SHOW_2FAKEY)->SetWindowText(CString(MAKEINTRESOURCE(IDS_SHOWPASSWORDTXT)));
+  m_ex_twofactorkey.SetSecure(true);
+  m_ex_twofactorkey.SetPasswordChar(PSSWDCHAR);
+  m_ex_twofactorkey.Invalidate();
 }

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -138,7 +138,10 @@ const PWSprefs::boolPref PWSprefs::m_bool_prefs[NumBoolPrefs] = {
   {_T("ToolbarShowText"), true, ptApplication},             // application
   {_T("DragAndDropShowRoot"), false, ptApplication},        // application
   {_T("ShowAliasSelection"), false, ptApplication},         // application
-  { _T("ExcludeFromClipboardHistory"), true, ptDatabase},   // database
+  {_T("ExcludeFromClipboardHistory"), true, ptDatabase},    // database
+  {_T("FindToolBarActive"), false, ptApplication},          // application
+  {_T("ExcludeFromScreenCapture"), true, ptDatabase},       // database
+
 };
 
 // Default value = -1 means set at runtime
@@ -219,7 +222,7 @@ const PWSprefs::stringPref PWSprefs::m_string_prefs[NumStringPrefs] = {
   {_T("AddEditSampleText"), _T("AaBbYyZz 0O1IlL"), ptApplication},  // application
   {_T("AltNotesEditorCmdLineParms"), _T(""), ptApplication},        // application
   {_T("TreeSort"), _T("group"), ptApplication},                     // application
-
+  {_T("ActiveFilterName"), _T(""), ptDatabase},                     // database
 };
 
 PWSprefs *PWSprefs::GetInstance()
@@ -259,14 +262,13 @@ PWSprefs::PWSprefs() : m_pXML_Config(nullptr)
   m_PSSrect.top = m_PSSrect.bottom = m_PSSrect.left = m_PSSrect.right = -1;
   m_PSSrect.changed = false;
 
-  m_MRUitems = new stringT[m_int_prefs[MaxMRUItems].maxVal];
+  m_MRUitems.resize(m_int_prefs[MaxMRUItems].maxVal);
   InitializePreferences();
 }
 
 PWSprefs::~PWSprefs()
 {
   delete m_pXML_Config;
-  delete[] m_MRUitems;
 }
 
 bool PWSprefs::CheckRegistryExists() const
@@ -413,55 +415,55 @@ void PWSprefs::GetPrefPSSRect(long &top, long &bottom,
   right = m_PSSrect.right;
 }
 
-unsigned int PWSprefs::GetMRUList(stringT *MRUFiles) const
+unsigned int PWSprefs::GetMRUList(std::vector<stringT> &MRUFiles) const
 {
-  ASSERT(MRUFiles != nullptr);
-
-  if (m_ConfigOption == CF_NONE || m_ConfigOption == CF_REGISTRY)
+  if (m_ConfigOption == CF_NONE || m_ConfigOption == CF_REGISTRY || m_ConfigOption == CF_FILE_RW_NEW) {
+    MRUFiles.clear();
     return 0;
+  }
 
+  MRUFiles = m_MRUitems;
   const unsigned int n = GetPref(PWSprefs::MaxMRUItems);
-  for (unsigned int i = 0; i < n; i++)
-    MRUFiles[i] = m_MRUitems[i];
 
-  return n;
+  if (MRUFiles.size() > n)
+    MRUFiles.erase(MRUFiles.begin() + n, MRUFiles.end());
+ 
+  return static_cast<unsigned int>(MRUFiles.size());
 }
 
-int PWSprefs::SetMRUList(const stringT *MRUFiles, int n, int max_MRU)
+unsigned int PWSprefs::SetMRUList(const std::vector<stringT> &MRUFiles, int max_MRU)
 {
-  ASSERT(n == 0 || MRUFiles != nullptr); // if n is zero, wx passes nullptr
 
   if (m_ConfigOption == CF_NONE || m_ConfigOption == CF_REGISTRY ||
       m_ConfigOption == CF_FILE_RO)
     return 0;
 
-  int i, cnt;
-  bool changed = false;
+  std::vector<stringT> cleanMRU; // MRUFiles w/o backups
   // remember the ones in use
-  for (i = 0, cnt = 1; i < n; i++) {
-    if (MRUFiles[i].empty() ||
-      // Don't remember backup files
-      MRUFiles[i].substr(MRUFiles[i].length() - 4) == _T(".bak") ||
-      MRUFiles[i].substr(MRUFiles[i].length() - 5) == _T(".bak~") ||
-      MRUFiles[i].substr(MRUFiles[i].length() - 5) == _T(".ibak") ||
-      MRUFiles[i].substr(MRUFiles[i].length() - 6) == _T(".ibak~"))
+  for (const auto &entry : MRUFiles) {
+    const auto el = entry.length();
+    // Ignore backup files
+    if ((el == 0) ||
+      (el >= 4 && entry.substr(el - 4) == _T(".bak")) ||
+      (el >= 5 && entry.substr(el - 5) == _T(".bak~")) ||
+      (el >= 5 && entry.substr(el - 5) == _T(".ibak")) ||
+      (el >= 6 && entry.substr(el - 6) == _T(".ibak~"))
+    )
       continue;
-    if (m_MRUitems[cnt - 1] != MRUFiles[i]) {
-      m_MRUitems[cnt - 1] = MRUFiles[i];
-      changed = true;
-    }
-    cnt++;
+    cleanMRU.push_back(entry);
   }
-  // Remove any not in use
-  for (i = cnt - 1; i < max_MRU; i++) {
-    if (!m_MRUitems[i].empty()) {
-      m_MRUitems[i] = _T("");
-      changed = true;
-    }
-  }
-  if (changed)
+
+  // trim cleanMRU to max_MRU
+  if (cleanMRU.size() > static_cast<std::size_t>(max_MRU))
+    cleanMRU.erase(cleanMRU.begin() + max_MRU, cleanMRU.end());
+
+  bool changed = (cleanMRU != m_MRUitems);
+
+  if (changed) {
+    m_MRUitems = cleanMRU;
     m_prefs_changed[APP_PREF] = true;
-  return n;
+  }
+  return static_cast<unsigned int>(m_MRUitems.size());
 }
 
 PWPolicy PWSprefs::GetDefaultPolicy(const bool bUseCopy) const
@@ -1487,9 +1489,15 @@ bool PWSprefs::LoadProfileFromFile()
   m_PrefLayout = m_pXML_Config->Get(m_csHKCU_PREF, _T("Layout"), L"");
 
   // Load most recently used file list
+  if (m_MRUitems.size() < m_intValues[MaxMRUItems])
+    m_MRUitems.resize(m_intValues[MaxMRUItems]);
   for (i = m_intValues[MaxMRUItems]; i > 0; i--) {
     Format(csSubkey, L"Safe%02d", i);
-    m_MRUitems[i-1] = m_pXML_Config->Get(m_csHKCU_MRU, csSubkey, L"");
+    auto value = m_pXML_Config->Get(m_csHKCU_MRU, csSubkey, L"");
+    if (!value.empty())
+    {
+      m_MRUitems[i-1] = value;
+    }
   }
 
   m_vShortcuts = m_pXML_Config->GetShortcuts(m_csHKCU_SHCT);
@@ -1634,16 +1642,15 @@ void PWSprefs::SaveApplicationPreferences()
 
   if (m_ConfigOption == CF_FILE_RW ||
       m_ConfigOption == CF_FILE_RW_NEW) {
-    int j;
-    const int n = GetPref(PWSprefs::MaxMRUItems);
+    int j = 0;
     // Delete ALL MRU entries
     m_pXML_Config->DeleteSetting(m_csHKCU_MRU, _T(""));
     // Now put back the ones we want
     stringT csSubkey;
-    for (j = 0; j < n; j++) {
-      if (!m_MRUitems[j].empty()) {
-        Format(csSubkey, L"Safe%02d", j + 1);
-        m_pXML_Config->Set(m_csHKCU_MRU, csSubkey, m_MRUitems[j]);
+    for (auto item : m_MRUitems) {
+      if (!item.empty()) {
+        Format(csSubkey, L"Safe%02d", ++j);
+        m_pXML_Config->Set(m_csHKCU_MRU, csSubkey, item);
       }
     }
 
@@ -1821,7 +1828,7 @@ stringT PWSprefs::GetXMLPreferences()
   stringT retval(_T(""));
   ostringstreamT os;
 
-  os << _S("\t<Preferences>") << endl;
+  os << _T("\t<Preferences>") << endl;
   int i;
   for (i = 0; i < NumBoolPrefs; i++) {
     if (m_boolValues[i] != m_bool_prefs[i].defVal &&

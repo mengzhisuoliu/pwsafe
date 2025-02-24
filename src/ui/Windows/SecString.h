@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -32,7 +32,7 @@
 class CSecString
 {
 public:
-  CSecString() : m_mystring(_S("")) {}
+  CSecString() : m_mystring(_T("")) {}
   CSecString(LPCWSTR lpsz) : m_mystring(lpsz) {}
   CSecString(LPCWSTR lpsz, int nLength) : m_mystring(lpsz, nLength) {}
   CSecString(const CSecString& stringSrc) : m_mystring(stringSrc.m_mystring) {}

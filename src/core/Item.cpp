@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -227,6 +227,7 @@ bool CItem::SetTextField(int ft, const unsigned char *value,
 
 void CItem::SetTime(const int whichtime, time_t t)
 {
+  ASSERT(IsTimeField(whichtime));
   unsigned char buf[sizeof(time_t)];
   putInt(buf, t);
   SetField(whichtime, buf, sizeof(time_t));
@@ -249,6 +250,39 @@ void CItem::GetField(const CItemField &field,
   field.Get(value, length, MakeBlowFish());
 }
 
+void CItem::GetField(const CItemField &field, std::vector<unsigned char> &v) const
+{
+  size_t length = roundUp(field.GetLength(), BlowFish::BLOCKSIZE);
+  v.resize(length);
+  field.Get(& v[0], length, MakeBlowFish());
+  v.resize(length);
+}
+
+void CItem::GetField(const int ft, std::vector<unsigned char> &v) const
+{
+  auto fiter = m_fields.find(ft);
+  if (fiter == m_fields.end()) {
+    v.clear();
+    return;
+  }
+  GetField(fiter->second, v);
+}
+
+uint8_t CItem::GetFieldAsByte(const CItemField& field, uint8_t default_value) const
+{
+  std::vector<uint8_t> v;
+  GetField(field, v);
+  return v.empty() ? default_value : v[0];
+}
+
+uint8_t CItem::GetFieldAsByte(const int ft, uint8_t default_value) const
+{
+  auto fiter = m_fields.find(ft);
+  if (fiter == m_fields.end())
+    return default_value;
+  return GetFieldAsByte(fiter->second, default_value);
+}
+
 StringX CItem::GetField(const int ft) const
 {
   auto fiter = m_fields.find(ft);
@@ -264,6 +298,7 @@ StringX CItem::GetField(const CItemField &field) const
 
 void CItem::GetTime(int whichtime, time_t &t) const
 {
+  ASSERT(IsTimeField(whichtime));
   auto fiter = m_fields.find(whichtime);
   if (fiter != m_fields.end()) {
     unsigned char in[TwoFish::BLOCKSIZE] = {0}; // required by GetField

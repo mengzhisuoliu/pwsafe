@@ -5,7 +5,7 @@
 ; first edit : Karlo Van der Gucht
 ;---------------------------------------------------
 ; Copyright 2004, David Lacy Kusters (dkusters@yahoo.com)
-; Copyright 2005-2023 Rony Shapiro <ronys@pwsafe.org>
+; Copyright 2005-2025 Rony Shapiro <ronys@pwsafe.org>
 ; 2009 extended by Karlo Van der Gucht for multiple language use
 ; 2010 extended by Karlo Van der Gucht Danish language
 ; This script may be redistributed and/or modified under the Artistic
@@ -125,6 +125,9 @@ LangString TURKISH_SUPPORT ${LANG_SWEDISH} "Turkisk"
 LangString HUNGARIAN_SUPPORT ${LANG_SWEDISH} "Ungerska"
 LangString SLOVENIAN_SUPPORT ${LANG_SWEDISH} "Slovenska"
 LangString ARABIC_SUPPORT ${LANG_SWEDISH} "Arabiska"
+; PORTUGUESEBR_SUPPORT "Portuguese (Brazil)"
+LangString PORTUGUESEBR_SUPPORT ${LANG_SWEDISH} "Portugisiska (Brasilien)"
+LangString LATVIAN_SUPPORT ${LANG_SWEDISH} "Lettiska"
  
 ; SORRY_NO_95 "Sorry, Windows 95 is no longer supported. Try PasswordSafe 2.16"
 LangString SORRY_NO_95 ${LANG_SWEDISH} "Tyvärr, Windows 95 stöds inte längre. Försök med PasswordSafe 2.16"
@@ -143,6 +146,19 @@ LangString Icon_description_Uninstall ${LANG_SWEDISH} "Password Safe avinstallat
 
 ; LangString Icon_description_Help  "Password Safe Help"
 LangString Icon_description_Help ${LANG_SWEDISH} "Password Safe Help"
+
+; Screen Capture Protection texts:
+; LangString SCRCAP_PROTECTION "Screen capture protection"
+LangString SCRCAP_PROTECTION ${LANG_SWEDISH} "Skärmskydd"
+
+; LangString SORRY_CANNOT_DISABLE_SCRCAP  "An error occurred disabling screen capture protection. Screen capture protection is not disabled."
+LangString SORRY_CANNOT_DISABLE_SCRCAP ${LANG_SWEDISH} "Ett fel uppstod när skärmdumpsskyddet inaktiverades. Skydd för skärmdump är inte inaktiverat."
+
+; LangString SORRY_CANNOT_ENABLE_SCRCAP "An error occurred setting screen capture protection to default (enabled)."
+LangString SORRY_CANNOT_ENABLE_SCRCAP ${LANG_SWEDISH} "Ett fel uppstod när skärmdumpsskyddet ställdes till standard (aktiverat)."
+
+; LangString DESC_ScrCapProtection "Enables screen capture protection."
+LangString DESC_ScrCapProtection ${LANG_SWEDISH} "Aktiverar skärmdumpsskydd."
 
 ;=================================================================
 ; End of pwsafe_sv.lng

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -277,12 +277,12 @@ wxCollapsiblePane* CompareDlg::CreateDataPanel(wxSizer* dlgSizer, const wxString
   //create a way to get to the ComparisonData object from the grid, which is the only thing we have in events
   wxASSERT_MSG(cd->grid->GetClientData() == nullptr, wxT("wxGrid::ClientData is not nullptr on creation.  Need to use that for our purposes"));
   cd->grid->SetClientData(cd);
-#ifndef __WXMSW__
+#if defined(__WXMSW__) || defined(__WXOSX__)
+  cd->grid->SetDefaultCellFont(wxSystemSettings::GetFont(wxSYS_OEM_FIXED_FONT));
+#else
   wxFont monospacedFont(10, wxFONTFAMILY_MODERN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
   if (monospacedFont.IsFixedWidth())
     cd->grid->SetDefaultCellFont(monospacedFont);
-#else
-  cd->grid->SetDefaultCellFont(wxSystemSettings::GetFont(wxSYS_OEM_FIXED_FONT));
 #endif
   cd->grid->SetColLabelAlignment(wxALIGN_LEFT, wxALIGN_BOTTOM);
   auto *gridSizer = new wxBoxSizer(wxVERTICAL);
@@ -814,7 +814,7 @@ void CompareDlg::DoSyncItemsWithCurrentDB(int menuId, ContextMenuData menuContex
   GTUSet setGTU;
   if (!m_currentCore->GetUniqueGTUValidated() && !m_currentCore->InitialiseGTU(setGTU)) {
     // Database is not unique to start with - tell user to validate it first
-    wxMessageBox(wxString::Format(_("The database:\n\n%ls\n\nhas duplicate entries with the same group/title/user combination. Please fix by validating database.").c_str(), m_currentCore->GetCurFile().c_str()),
+    wxMessageBox(wxString::Format(_("The database:\n\n%ls\n\nhas duplicate entries with the same group/title/user combination. You can fix this by validating the database.").c_str(), m_currentCore->GetCurFile().c_str()),
                   _("Synchronization failed"), wxOK|wxICON_EXCLAMATION, this);
     return;
   }

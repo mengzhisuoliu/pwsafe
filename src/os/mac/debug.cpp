@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -7,6 +7,9 @@
 */
 
 #include "../debug.h"
+
+// Provides TARGET_OS_.. defines
+#include <TargetConditionals.h>
 
 #if defined(_DEBUG) || defined(DEBUG)
 
@@ -94,12 +97,24 @@ bool pws_os::DisableDumpAttach()
 
 #else   /* _DEBUG || DEBUG */
 #include <sys/types.h>
+#if !TARGET_OS_IPHONE
 #include <sys/ptrace.h>
+#endif
+#include <sys/resource.h>
 
 bool pws_os::DisableDumpAttach()
 {
+  int pret, lret;
+  struct rlimit rl = {0, 0};
+
   // prevent ptrace and creation of core dumps
-  return ptrace(PT_DENY_ATTACH, 0, 0, 0) == 0;
+  lret = setrlimit(RLIMIT_CORE, &rl);
+#if !TARGET_OS_IPHONE
+  pret = ptrace(PT_DENY_ATTACH, 0, 0, 0);
+#else
+  pret = 0;
+#endif
+  return (pret == 0 && lret == 0);
 }
 
 void pws_os::Trace(LPCTSTR , ...)

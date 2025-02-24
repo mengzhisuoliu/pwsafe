@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -43,15 +43,14 @@ public:
       for (size_t idx = 0, max = GetCount(); idx < max; ++idx) {
         mruList.push_back(stringT(GetHistoryFile(idx)));
       }
-      PWSprefs::GetInstance()->SetMRUList(&mruList[0], static_cast<int>(mruList.size()), 
-                  PWSprefs::GetInstance()->GetPref(PWSprefs::MaxMRUItems));
+      PWSprefs::GetInstance()->SetMRUList(mruList, PWSprefs::GetInstance()->GetPref(PWSprefs::MaxMRUItems));
     }
 
     void Load() {
       PWSprefs* prefs = PWSprefs::GetInstance();
       const auto nExpected = prefs->GetPref(PWSprefs::MaxMRUItems);
       std::vector<stringT> mruList(nExpected);
-      const auto nFound = prefs->GetMRUList(&mruList[0]);
+      const auto nFound = prefs->GetMRUList(mruList);
       wxASSERT(nExpected >= nFound);
       for (unsigned int idx = 0; idx < nFound; ++idx) {
         if (!mruList[idx].empty())

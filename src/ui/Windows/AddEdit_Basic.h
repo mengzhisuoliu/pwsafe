@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -15,8 +15,10 @@
 #include "ExtThread.h"
 #include "ControlExtns.h"
 #include "TBMStatic.h"
+#include "ProgressPieCtrl.h"
 
 #include "core/ItemData.h"
+#include "core/TotpCore.h"
 
 class DboxMain;
 
@@ -48,10 +50,13 @@ public:
 
   CSecEditExtn m_ex_password, m_ex_password2;
 
+  CProgressPieCtrl m_btnTwoFactorCode;
+
   CStaticExtn m_stc_group;
   CStaticExtn m_stc_title;
   CStaticExtn m_stc_username;
   CStaticExtn m_stc_password;
+  CStaticExtn m_stcTwoFactorCode;
   CStaticExtn m_stc_notes;
   CStaticExtn m_stc_URL;
   CStaticExtn m_stc_email;
@@ -92,8 +97,10 @@ protected:
   //{{AFX_MSG(CAddEdit_Basic)
   afx_msg void OnHelp();
   afx_msg LRESULT OnQuerySiblings(WPARAM wParam, LPARAM);
+  afx_msg void OnPageSetActive(NMHDR*, LRESULT* pLResult);
   afx_msg void OnPageKillActive(NMHDR *nmhdr, LRESULT *pLResult);
   afx_msg HBRUSH OnCtlColor(CDC *pDC, CWnd *pWnd, UINT nCtlColor);
+  afx_msg void OnTimer(UINT_PTR nIDEvent);
 
   afx_msg void OnENSetFocusPassword();
   afx_msg void OnENSetFocusPassword2();
@@ -108,6 +115,8 @@ protected:
   afx_msg void OnGeneratePassword();
   afx_msg void OnCopyPassword();
   afx_msg void OnShowPassword();
+  afx_msg void OnCopyTwoFactorCode();
+  afx_msg void OnTwoFactorCodeStaticClicked();
   afx_msg void OnSTCExClicked(UINT nId);
   afx_msg void OnLaunch();
   afx_msg void OnSendEmail();
@@ -136,7 +145,13 @@ private:
                         const bool bIsEdit, const CItemData::EntryType InputType, 
                         pws_os::CUUID &base_uuid, int &ibasedata, bool &b_msg_issued);
   void SetGroupComboBoxWidth();
-  void ShowHideBaseInfo(const CItemData::EntryType &entrytype, CSecString &csBase);
+  void ShowHideBaseInfo(const CItemData::EntryType &entrytype, const CSecString &csBase);
+  void SetupAuthenticationCodeUiElements();
+  void StopAuthenticationCodeUi();
+  void UpdateAuthCode();
+  PWSTotp::TOTP_Result ValidateTotpConfiguration(double *pRatio = nullptr);
+
+  CSecString GetTwoFactorKey();
 
   CTBMStatic m_Help1, m_Help2, m_Help3, m_Help4;
 
@@ -150,6 +165,12 @@ private:
   int m_iPointSize;
 
   CBitmap m_CopyPswdBitmap;
+  StringX m_sxLastAuthCode;
+  bool m_bTwoFactorCodeClipboard = false;
+  bool m_bTwoFactorCodeClipboardFirstTime = false;
+  bool m_bTwoFactorCodeShowStatic = false;
+  CFont m_fontTwoFactorCodeStatic;
+  const wchar_t* m_pszNotShowingCode = L"********";
 };
 //-----------------------------------------------------------------------------
 // Local variables:

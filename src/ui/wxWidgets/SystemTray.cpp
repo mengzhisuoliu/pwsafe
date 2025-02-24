@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -25,6 +25,7 @@
 #include "core/PWSprefs.h"
 
 #include "PasswordSafeFrame.h"
+#include "SetDatabaseIdDlg.h"
 #include "SystemTray.h"
 #include "SystemTrayMenuId.h"
 #include "wxUtilities.h"
@@ -67,6 +68,7 @@ BEGIN_EVENT_TABLE( SystemTray, wxTaskBarIcon )
   EVT_MENU( wxID_EXIT,          SystemTray::OnSysTrayMenuItem )
   EVT_MENU( wxID_ICONIZE_FRAME, SystemTray::OnSysTrayMenuItem )
   EVT_MENU( ID_CLEARCLIPBOARD,  SystemTray::OnSysTrayMenuItem )
+  EVT_MENU( ID_SETDATABASEID,   SystemTray::OnSysTrayMenuItem )
   EVT_MENU( wxID_ABOUT,         SystemTray::OnSysTrayMenuItem )
   EVT_MENU( wxID_CLOSE,         SystemTray::OnSysTrayMenuItem )
   EVT_MENU( ID_SYSTRAY_CLEAR_RUE,  SystemTray::OnSysTrayMenuItem )
@@ -74,11 +76,15 @@ BEGIN_EVENT_TABLE( SystemTray, wxTaskBarIcon )
   EVT_TASKBAR_LEFT_DCLICK( SystemTray::OnTaskBarLeftDoubleClick )
 END_EVENT_TABLE()
 
-SystemTray::SystemTray(PasswordSafeFrame* frame) : iconClosed(tray_xpm),
-                                                   iconUnlocked(unlocked_tray_xpm),
-                                                   iconLocked(locked_tray_xpm),
+SystemTray::SystemTray(PasswordSafeFrame* frame) : m_TrayIconWithOverlay(false),
+                                                   m_DatabaseID(0),
+                                                   m_LockedDatabaseIdColor(*wxYELLOW),
+                                                   m_UnlockedDatabaseIdColor(*wxYELLOW),
+                                                   m_IconClosed(tray_xpm),
+                                                   m_IconUnlocked(unlocked_tray_xpm),
+                                                   m_IconLocked(locked_tray_xpm),
                                                    m_frame(frame),
-                                                   m_status(TrayStatus::  CLOSED)
+                                                   m_status(TrayStatus::CLOSED)
 {
 }
 
@@ -92,15 +98,15 @@ void SystemTray::SetTrayStatus(TrayStatus status)
   if (PWSprefs::GetInstance()->GetPref(PWSprefs::UseSystemTray)) {
      switch(status) {
        case TrayStatus::CLOSED:
-         SetIcon(iconClosed, wxTheApp->GetAppName());
+         SetIcon(m_IconClosed, wxTheApp->GetAppName());
          break;
 
        case TrayStatus::UNLOCKED:
-         SetIcon(iconUnlocked, m_frame->GetCurrentSafe());
+         SetIcon(m_TrayIconWithOverlay ? m_IconUnlockedWithID : m_IconUnlocked, m_frame->GetCurrentSafe());
          break;
 
        case TrayStatus::LOCKED:
-         SetIcon(iconLocked, m_frame->GetCurrentSafe());
+         SetIcon(m_TrayIconWithOverlay ? m_IconLockedWithID : m_IconLocked, m_frame->GetCurrentSafe());
          break;
 
        default:
@@ -116,15 +122,15 @@ wxMenu* SystemTray::CreatePopupMenu()
 
   switch (m_status) {
     case TrayStatus::UNLOCKED:
-        menu->Append(ID_SYSTRAY_LOCK, _("&Lock Safe"))->SetBitmap(wxBitmap(lock_xpm));
+        menu->Append(ID_SYSTRAY_LOCK, _("&Lock"))->SetBitmap(wxBitmap(lock_xpm));
       break;
 
     case TrayStatus::LOCKED:
-        menu->Append(ID_SYSTRAY_UNLOCK, _("&Unlock Safe"))->SetBitmap(wxBitmap(unlock_xpm));
+        menu->Append(ID_SYSTRAY_UNLOCK, _("&Unlock"))->SetBitmap(wxBitmap(unlock_xpm));
         break;
 
     case TrayStatus::CLOSED:
-        menu->Append(wxID_NONE, _("No Safe Open"));
+        menu->Append(wxID_NONE, _("No Password Database Open"));
         break;
 
     default:
@@ -142,6 +148,8 @@ wxMenu* SystemTray::CreatePopupMenu()
   menu->AppendSeparator();
   menu->Append(wxID_ICONIZE_FRAME, _("&Minimize"));
   menu->Append(ID_SYSTRAY_RESTORE, _("&Restore"));
+  menu->AppendSeparator();
+  menu->Append(ID_SETDATABASEID, _("Set Database &ID"));
   menu->AppendSeparator();
   menu->Append(ID_CLEARCLIPBOARD,  _("&Clear Clipboard"))->SetBitmap(wxBitmap(clearclipboard_xpm));
   menu->Append(wxID_ABOUT,         _("&About Password Safe..."))->SetBitmap(wxBitmap(about_xpm));
@@ -250,11 +258,45 @@ void SystemTray::OnSysTrayMenuItem(wxCommandEvent& evt)
       case wxID_CLOSE:
         m_frame->GetEventHandler()->ProcessEvent(evt);
         break;
+      case ID_SETDATABASEID:
+        ShowSetDatabaseIdDialog();
+        break;
       default:
         wxTheApp->CallAfter([this, id](){ ProcessSysTrayMenuItem(id); });
         break;
     }
   }
+}
+
+void SystemTray::ShowSetDatabaseIdDialog()
+{
+  DestroyWrapper<SetDatabaseIdDlg> dialogWrapper(m_frame);
+  auto dialog = dialogWrapper.Get();
+
+  dialog->SetDatabaseID(m_DatabaseID);
+  dialog->SetLockedDatabaseIdColor(m_LockedDatabaseIdColor);
+  dialog->SetUnlockedDatabaseIdColor(m_UnlockedDatabaseIdColor);
+  dialog->UpdateSampleBitmaps();
+
+  if (dialog->ShowModal() != wxID_OK) {
+    return;
+  }
+
+  m_DatabaseID = dialog->GetDatabaseID();
+  m_LockedDatabaseIdColor = dialog->GetLockedDatabaseIdColor();
+  m_UnlockedDatabaseIdColor = dialog->GetUnlockedDatabaseIdColor();
+
+  if (m_DatabaseID < 1) {
+    m_TrayIconWithOverlay = false;
+  }
+  else {
+    m_TrayIconWithOverlay = true;
+    auto trayIconOverlayText = wxString::Format(wxT("%i"), m_DatabaseID);
+    m_IconUnlockedWithID = CreateIconWithOverlay(m_IconUnlocked, m_UnlockedDatabaseIdColor, trayIconOverlayText);
+    m_IconLockedWithID = CreateIconWithOverlay(m_IconLocked, m_LockedDatabaseIdColor, trayIconOverlayText);
+  }
+
+  SetTrayStatus(m_status);
 }
 
 void SystemTray::ProcessSysTrayMenuItem(int itemId)
@@ -269,7 +311,15 @@ void SystemTray::ProcessSysTrayMenuItem(int itemId)
       break;
 
     case ID_SYSTRAY_UNLOCK:
+#ifdef __WXOSX__
+      // The intent of this menu option is to unlock the DB without restoring the window.
+      // On macOS, an empty window frame appears with no UI elements.
+      // I couldn't find a way to suppress the window frame, so the workaround is to
+      // go ahead and fully restore the UI.  If a better way is found, this ifdef can be removed.
+      m_frame->UnlockSafe(true, false); // true => restore UI
+#else
       m_frame->UnlockSafe(false, false); // false => don't restore UI
+#endif
       break;
 
     case ID_SYSTRAY_CLEAR_RUE:

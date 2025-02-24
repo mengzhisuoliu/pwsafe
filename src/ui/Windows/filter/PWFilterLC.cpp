@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -814,6 +814,7 @@ bool CPWFilterLC::SetField(const int iItem)
         case FT_EMAIL:
         case FT_SYMBOLS:
         case FT_POLICYNAME:
+        case FT_TWOFACTORKEY:
           bAddPresent = true;
           mt = PWSMatch::MT_STRING;
           break;
@@ -1593,6 +1594,10 @@ void CPWFilterLC::SetUpComboBoxData()
 
         stf.cs_text = CItemData::FieldName(CItemData::PASSWORD).c_str();
         stf.ftype = FT_PASSWORD;
+        m_vFcbx_data.push_back(stf);
+
+        stf.cs_text = CItemData::GetUserInterfaceFieldName(CItemData::TWOFACTORKEY).c_str();
+        stf.ftype = FT_TWOFACTORKEY;
         m_vFcbx_data.push_back(stf);
 
         stf.cs_text = CItemData::FieldName(CItemData::NOTES).c_str();

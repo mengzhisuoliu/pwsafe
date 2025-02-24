@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -58,6 +58,7 @@ enum XLE_PASSWORDSAFE {
   XLE_PREF_PWMAKEPRONOUNCEABLE,
   XLE_PREF_LOCKDBONIDLETIMEOUT,
   XLE_PREF_COPYPASSWORDWHENBROWSETOURL,
+  XLE_PREF_EXCLUDEFROMSCREENCAPTURE,
 
   //  Integer Preferences
   XLE_PREF_PWDEFAULTLENGTH,
@@ -79,6 +80,11 @@ enum XLE_PASSWORDSAFE {
   XLE_TITLE,
   XLE_USERNAME,
   XLE_PASSWORD,
+  XLE_TWOFACTORKEY,
+  XLE_TOTPCONFIG,
+  XLE_TOTPSTARTTIME,
+  XLE_TOTPTIMESTEP,
+  XLE_TOTPLENGTH,
   XLE_URL,
   XLE_AUTOTYPE,
   XLE_NOTES,

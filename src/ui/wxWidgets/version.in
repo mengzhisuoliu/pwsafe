@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -31,11 +31,7 @@
 //   Revision != 0 for all Intermediate versions
 // Full information shown in AboutBox; only Major & Minor are displayed in initial dialog
 
-#ifdef linux
-#define APPNAME _T("PasswordSafe (linux)")
-#else
-#define APPNAME _T("PasswordSafe (wxWidgets)")
-#endif
+#define APPNAME _T("PasswordSafe")
 
 #define MAJORVERSION @pwsafe_VERSION_MAJOR@
 #define MINORVERSION @pwsafe_VERSION_MINOR@

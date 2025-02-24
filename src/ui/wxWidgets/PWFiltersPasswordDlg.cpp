@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -367,7 +367,7 @@ void pwFiltersPasswordDlg::OnOk(wxCommandEvent& WXUNUSED(event))
     if(*m_prule != PWSMatch::MR_EXPIRED &&
        *m_prule != PWSMatch::MR_WILLEXPIRE &&
        m_string.IsEmpty()) {
-      wxMessageBox(_("Please specify text."), _("Missing text for the selected rule."), wxOK|wxICON_ERROR);
+      wxMessageBox(_("Specify text."), _("Missing text for the selected rule."), wxOK|wxICON_ERROR);
       return;
     }
     

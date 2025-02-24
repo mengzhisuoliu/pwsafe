@@ -18,18 +18,18 @@
     <?define Win64 = "yes" ?>
     <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
     <?define Architecture = "64-bit" ?>
-    <?define BinDir = "out\build\x64-Release\Release" ?>
-    <?define LangDir = "out/build/x64-Release/I18N/" ?>
+    <?define BinDir = "out\build\windows-x64-release\" ?>
+    <?define LangDir = "out/build/windows-x64-release/I18N/" ?>
   <?else ?>
     <?define ProductName = "Password Safe $(var.PWSAFE_VERSION) for Windows (32 bit)" ?>
     <?define Win64 = "no" ?>
     <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
     <?define Architecture = "32-bit" ?>
-    <?define BinDir = "out\build\x86-Release\Release" ?>
-    <?define LangDir = "out/build/x86-Release/I18N" ?>
+    <?define BinDir = "out\build\windows-x86-release\" ?>
+    <?define LangDir = "out/build/windows-x86-release/I18N" ?>
   <?endif ?>
 
-  <Product Id='c2a02857-d138-446b-b181-442dee20c8e6'
+  <Product Id='*'
 	   UpgradeCode='6dbf5233-ad08-4345-9ac7-746f32614a43'
 	   Name='Password Safe $(var.PWSAFE_VERSION) for Windows ($(var.Architecture))'
 	   Version='$(var.PWSAFE_VERSION)'
@@ -43,6 +43,18 @@
 	     InstallerVersion='200'
 	     Compressed='yes'
 	     />
+
+  	<Icon Id="CpaneIcon" SourceFile="src\ui\Windows\graphics\cpane.ico" />
+	<Property Id="ARPPRODUCTICON" Value="CpaneIcon" />
+
+	<SetProperty Action="SetSCRCAP0" Id="RESOLVEDSCREENCAPTUREPROTECTIONVALUE"
+	             Before="InstallInitialize" Sequence="execute" Value="1">
+	  <![CDATA[SCREENCAPTUREPROTECTION<>"False"]]>
+	</SetProperty>
+	<SetProperty Action="SetSCRCAP1" Id="RESOLVEDSCREENCAPTUREPROTECTIONVALUE"
+	             Before="InstallInitialize" Sequence="execute" Value="0">
+	  <![CDATA[SCREENCAPTUREPROTECTION="False"]]>
+	</SetProperty>
 
     <UIRef Id='WixUI_InstallDir' />
     <UIRef Id="WixUI_ErrorProgressText" />
@@ -149,18 +161,24 @@
 		<File Id='file27' Name='pwsafePT_BR.dll' DiskId='1'
 	      Source='$(var.LangDir)\pwsafePT_BR.dll' Vital='yes'> 
 	    </File>
+		<File Id='file28' Name='pwsafeLV.dll' DiskId='1'
+	      Source='$(var.LangDir)\pwsafeLV.dll' Vital='yes'> 
+	    </File>
+		<RegistryKey Root="HKLM" Key="Software\Password Safe\Admin" ForceDeleteOnUninstall="yes">
+		  <RegistryValue Type="integer" Name="ScreenCaptureProtection" Value="[RESOLVEDSCREENCAPTUREPROTECTIONVALUE]"/>
+		</RegistryKey>
 	  </Component>
 	  <Component Id='SupportingFiles'
 	    Guid='2cb36029-a029-4f15-9838-4acacb823ce7'> 
-	    <File Id='file28' Name='pwsafe.xsd' DiskId='1'
+	    <File Id='file29' Name='pwsafe.xsd' DiskId='1'
 	    Source='xml\pwsafe.xsd' Vital='yes' />
-	    <File Id='file29' Name='pwsafe.xsl' DiskId='1'
+	    <File Id='file30' Name='pwsafe.xsl' DiskId='1'
 	    Source='xml\pwsafe.xsl' Vital='yes' />
-	    <File Id='file30' Name='pwsafe_filter.xsd' DiskId='1'
+	    <File Id='file31' Name='pwsafe_filter.xsd' DiskId='1'
 	    Source='xml\pwsafe_filter.xsd' Vital='yes' />
-	    <File Id='file31' Name='KPV1_to_PWS.xslt' DiskId='1'
+	    <File Id='file32' Name='KPV1_to_PWS.xslt' DiskId='1'
 	    Source='xml\KPV1_to_PWS.xslt' Vital='yes' />
-	    <File Id='file32' Name='KPV2_to_PWS.xslt' DiskId='1'
+	    <File Id='file33' Name='KPV2_to_PWS.xslt' DiskId='1'
 	    Source='xml\KPV2_to_PWS.xslt' Vital='yes' />
 	  </Component>
 	</Directory>

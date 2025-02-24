@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -161,28 +161,92 @@ void PWScore::Compare(PWScore *pothercore,
          Fourth byte
          1... ....  POLICYNAME [0x18] - not checked by default
          .1.. ....  KBSHORTCUT [0x19] - not checked by default
+         ..1. ....  ATTREF     [0x1a] - not checked by default
+         ...1 ....  TWOFACTORKEY [0x1b] - not checked by default
+         .... 1...  CCNUM      [0x1c] - not checked by default
+         .... .1..  CCEXP      [0x1d] - not checked by default
+         .... ..1.  CCVV       [0x1e] - not checked by default
+         .... ...1  CCPIN      [0x1f] - not checked by default
+
+         Fifth byte
+         1... ....  N/A        [0x20]
+         .1.. ....  TOTPCONFIG [0x21]
+         ..1. ....  TOTPLENGTH [0x22]
+         ...1 ....  TOTPTIMESTEP [0x23]
+         .... 1...  TOTPSTARTTIME [0x24]
+         .... .1..  N/A        [0x25]
+         .... ..1.  N/A        [0x26]
+         .... ...1  N/A        [0x27]
 
         */
         bsConflicts.reset();
         StringX sxCurrentPassword, sxComparisonPassword;
+        StringX sxCurrentTwoFactorKey, sxComparisonTwoFactorKey;
+        StringX sxCurrentTotpConfig, sxComparisonTotpConfig;
+        StringX sxCurrentTotpStartTime, sxComparisonTotpStartTime;
+        StringX sxCurrentTotpTimeStep, sxComparisonTotpTimeStep;
+        StringX sxCurrentTotpLength, sxComparisonTotpLength;
+
 
         const CItemData &compItem = pothercore->GetEntry(foundPos);
 
         if (currentItem.IsDependent()) {
           CItemData *pci_base = GetBaseEntry(&currentItem);
           sxCurrentPassword = pci_base->GetPassword();
-        } else
+          sxCurrentTwoFactorKey = pci_base->GetTwoFactorKey();
+          sxCurrentTotpConfig = pci_base->GetTotpConfig();
+          sxCurrentTotpStartTime = pci_base->GetTotpStartTime();
+          sxCurrentTotpTimeStep = pci_base->GetTotpTimeStepSeconds();
+          sxCurrentTotpLength = pci_base->GetTotpLength();
+        } else {
           sxCurrentPassword = currentItem.GetPassword();
+          sxCurrentTwoFactorKey = currentItem.GetTwoFactorKey();
+          sxCurrentTotpConfig = currentItem.GetTotpConfig();
+          sxCurrentTotpStartTime = currentItem.GetTotpStartTime();
+          sxCurrentTotpTimeStep = currentItem.GetTotpTimeStepSeconds();
+          sxCurrentTotpLength = currentItem.GetTotpLength();
+        }
 
         if (compItem.IsDependent()) {
           CItemData *pci_base = pothercore->GetBaseEntry(&compItem);
           sxComparisonPassword = pci_base->GetPassword();
-        } else
+          sxComparisonTwoFactorKey = pci_base->GetTwoFactorKey();
+          sxComparisonTotpConfig = pci_base->GetTotpConfig();
+          sxComparisonTotpStartTime = pci_base->GetTotpStartTime();
+          sxComparisonTotpTimeStep = pci_base->GetTotpTimeStepSeconds();
+          sxComparisonTotpLength = pci_base->GetTotpLength();
+        } else {
           sxComparisonPassword = compItem.GetPassword();
+          sxComparisonTwoFactorKey = compItem.GetTwoFactorKey();
+          sxComparisonTotpConfig = compItem.GetTotpConfig();
+          sxComparisonTotpStartTime = compItem.GetTotpStartTime();
+          sxComparisonTotpTimeStep = compItem.GetTotpTimeStepSeconds();
+          sxComparisonTotpLength = compItem.GetTotpLength();
+        }
 
         if (bsFields.test(CItemData::PASSWORD) &&
-            sxCurrentPassword != sxComparisonPassword)
+          sxCurrentPassword != sxComparisonPassword)
           bsConflicts.flip(CItemData::PASSWORD);
+
+        if (bsFields.test(CItemData::TWOFACTORKEY) &&
+          sxCurrentTwoFactorKey != sxComparisonTwoFactorKey)
+          bsConflicts.flip(CItemData::TWOFACTORKEY);
+
+        if (bsFields.test(CItemData::TOTPCONFIG) &&
+          sxCurrentTotpConfig != sxComparisonTotpConfig)
+          bsConflicts.flip(CItemData::TOTPCONFIG);
+
+        if (bsFields.test(CItemData::TOTPSTARTTIME) &&
+          sxCurrentTotpStartTime != sxComparisonTotpStartTime)
+          bsConflicts.flip(CItemData::TOTPSTARTTIME);
+
+        if (bsFields.test(CItemData::TOTPTIMESTEP) &&
+          sxCurrentTotpTimeStep != sxComparisonTotpTimeStep)
+          bsConflicts.flip(CItemData::TOTPTIMESTEP);
+
+        if (bsFields.test(CItemData::TOTPLENGTH) &&
+          sxCurrentTotpLength != sxComparisonTotpLength)
+          bsConflicts.flip(CItemData::TOTPLENGTH);
 
         CompareField(CItemData::NOTES, bsFields, currentItem, compItem,
                      bsConflicts, bTreatWhiteSpaceasEmpty);
@@ -376,7 +440,8 @@ bool PWScore::MatchGroupName(const StringX &stValue, const StringX &subgroup_nam
 #define MRG_SYMBOLS    0x0010
 #define MRG_SHIFTDCA   0x0008
 #define MRG_POLICYNAME 0x0004
-#define MRG_UNUSED     0x0003
+#define MRG_TOTP       0x0002 // anything TOTP related (i.e., Two Factor Key, TOTP Parameters, etc.).
+#define MRG_UNUSED     0x0001
 
 stringT PWScore::Merge(PWScore *pothercore,
                        const bool &subgroup_bset,
@@ -486,6 +551,36 @@ stringT PWScore::Merge(PWScore *pothercore,
       if (otherItem.GetPassword() != curItem.GetPassword()) {
         diff_flags |= MRG_PASSWORD;
         LoadAString(str_temp, IDSC_FLDNMPASSWORD);
+        str_diffs += str_temp + _T(", ");
+      }
+
+      if (otherItem.GetTwoFactorKey() != curItem.GetTwoFactorKey()) {
+        diff_flags |= MRG_TOTP;
+        LoadAString(str_temp, IDSC_FLDNMTWOFACTORKEY);
+        str_diffs += str_temp + _T(", ");
+      }
+
+      if (otherItem.GetTotpConfigAsByte() != curItem.GetTotpConfigAsByte()) {
+        diff_flags |= MRG_TOTP;
+        LoadAString(str_temp, IDSC_FLDNMTOTPCONFIG);
+        str_diffs += str_temp + _T(", ");
+      }
+
+      if (otherItem.GetTotpStartTimeAsTimeT() != curItem.GetTotpStartTimeAsTimeT()) {
+        diff_flags |= MRG_TOTP;
+        LoadAString(str_temp, IDSC_FLDNMTOTPSTARTTIME);
+        str_diffs += str_temp + _T(", ");
+      }
+
+      if (otherItem.GetTotpTimeStepSecondsAsByte() != curItem.GetTotpTimeStepSecondsAsByte()) {
+        diff_flags |= MRG_TOTP;
+        LoadAString(str_temp, IDSC_FLDNMTOTPTIMESTEP);
+        str_diffs += str_temp + _T(", ");
+      }
+
+      if (otherItem.GetTotpLengthAsByte() != curItem.GetTotpLengthAsByte()) {
+        diff_flags |= MRG_TOTP;
+        LoadAString(str_temp, IDSC_FLDNMTOTPLENGTH);
         str_diffs += str_temp + _T(", ");
       }
 
@@ -903,6 +998,46 @@ int PWScore::MergeDependents(PWScore *pothercore, MultiCommands *pmulticmds,
   return numadded;
 }
 
+bool PWScore::SyncItem(const CItemData& srcItem, CItemData& dstItem, const CItemData::FieldBits& bsFields,
+                       MultiCommands& mcmd, const PWScore *potherCore)
+{
+  bool bUpdated(false);
+  // Do not try and change GROUPTITLE = 0x00 (use GROUP & TITLE separately) or UUID = 0x01
+  for (size_t i = 2; i < bsFields.size(); i++) {
+
+    if (bsFields.test(i)) {
+      const CItem::FieldType ft = static_cast<CItem::FieldType>(i);
+      const StringX sxValue = srcItem.GetFieldValue(ft);
+
+      // Special processing for password policies (default & named)
+      if (ft == CItemData::POLICYNAME) {
+        // Don't really need the map and vector as only sync'ing 1 entry
+        std::map<StringX, StringX> mapRenamedPolicies;
+        std::vector<StringX> vs_PoliciesAdded;
+
+        const StringX sxSync_DateTime = PWSUtil::GetTimeStamp(true).c_str();
+        StringX sxPolicyName = srcItem.GetPolicyName();
+
+        Command* pPolicyCmd = ProcessPolicyName(potherCore, dstItem,
+          mapRenamedPolicies, vs_PoliciesAdded, sxPolicyName, bUpdated,
+          sxSync_DateTime, IDSC_SYNCPOLICY);
+        if (pPolicyCmd != nullptr)
+          mcmd.Add(pPolicyCmd);
+      } else {
+        if (sxValue != dstItem.GetFieldValue(ft)) {
+          bUpdated = true;
+          if (!CItem::IsTimeField(ft))
+            dstItem.SetFieldValue(ft, sxValue);
+          else
+            dstItem.CopyTime(ft, srcItem); // avoid hassle of parsing locale-time representations
+        }
+      }
+    }
+  }
+  return bUpdated;
+}
+
+
 void PWScore::Synchronize(PWScore *pothercore,
                           const CItemData::FieldBits &bsFields, const bool &subgroup_bset,
                           const stringT &subgroup_name,
@@ -998,10 +1133,11 @@ void PWScore::Synchronize(PWScore *pothercore,
       // Do not try and change GROUPTITLE = 0x00 (use GROUP & TITLE separately) or UUID = 0x01
       for (size_t i = 2; i < bsSyncFields.size(); i++) {
         if (bsSyncFields.test(i)) {
-          StringX sxValue = otherItem.GetFieldValue(static_cast<CItemData::FieldType>(i));
+          const CItem::FieldType ft = static_cast<CItem::FieldType>(i);
+          StringX sxValue = otherItem.GetFieldValue(ft);
 
           // Special processing for password policies (default & named)
-          if (static_cast<CItemData::FieldType>(i) == CItemData::POLICYNAME) {
+          if (ft == CItemData::POLICYNAME) {
             Command *pPolicyCmd = ProcessPolicyName(pothercore, updItem,
                                    mapRenamedPolicies, vs_PoliciesAdded,
                                    sxValue, bUpdated,
@@ -1009,9 +1145,12 @@ void PWScore::Synchronize(PWScore *pothercore,
             if (pPolicyCmd != nullptr)
               pmulticmds->Add(pPolicyCmd);
           } else {
-            if (sxValue != updItem.GetFieldValue(static_cast<CItemData::FieldType>(i))) {
+            if (sxValue != updItem.GetFieldValue(ft)) {
               bUpdated = true;
-              updItem.SetFieldValue(static_cast<CItemData::FieldType>(i), sxValue);
+              if (!CItem::IsTimeField(ft))
+                updItem.SetFieldValue(ft, sxValue);
+              else
+                updItem.CopyTime(ft, otherItem); // avoid hassle of parsing locale-time representations
             }
           }
         }
@@ -1080,7 +1219,7 @@ void PWScore::Synchronize(PWScore *pothercore,
   pRpt->WriteLine(str_results.c_str());
 }
 
-Command *PWScore::ProcessPolicyName(PWScore *pothercore, CItemData &updtEntry,
+Command *PWScore::ProcessPolicyName(const PWScore *pothercore, CItemData &updtEntry,
                                     std::map<StringX, StringX> &mapRenamedPolicies,
                                     std::vector<StringX> &vs_PoliciesAdded,
                                     StringX &sxOtherPolicyName, bool &bUpdated,

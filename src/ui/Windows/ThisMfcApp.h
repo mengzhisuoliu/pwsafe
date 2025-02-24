@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -40,8 +40,19 @@ struct LANGHELPFILE {
 
 class DboxMain;
 
+#define PWS_ADMIN_OPTIONS_SUBKEY_NAME L"Software\\Password Safe\\Admin"
+#define SCRCAP_PROTECTION_ENABLED_REG_VALUE_NAME L"ScreenCaptureProtection"
+
 class ThisMfcApp : public CWinApp
 {
+public:
+  enum AllowScreenCaptureState
+  {
+    Disallowed,
+    ForceAllowedCommandLine,
+    AllowedRegistrySetting,
+    MaxState
+  };
 public:
   ThisMfcApp();
   ~ThisMfcApp();
@@ -84,6 +95,13 @@ public:
   void GetLanguageFiles();
   void SetLanguage();
   void SetMinidumpUserStreams(const bool bOpen, const bool bRW, UserStream iStream = usAll);
+
+  // Screen capture protection:
+  static int GetScreenCaptureProtectionEnabledRegValue();
+  bool IsCommandLineForcedAllowScreenCapture() const { return m_allowScreenCaptureState == ForceAllowedCommandLine; }
+  bool IsExcludeFromScreenCapture() const;
+  UINT ResolveAllowScreenCaptureStateResourceId(UINT nIdFirst) const;
+  CString GetAllowScreenCaptureStateMessage(UINT nIdFirst) const;
 
   DWORD GetOSMajorMinor() { return m_dwMajorMinor; }
 
@@ -128,6 +146,10 @@ private:
 
   // Used to check if called from a thread
   DWORD m_nBaseThreadID;
+
+  // Used as needed to detect user command-line override of
+  // any ExcludeFromScreenCapture preference in effect.
+  AllowScreenCaptureState m_allowScreenCaptureState;
 };
 //-----------------------------------------------------------------------------
 // Local variables:

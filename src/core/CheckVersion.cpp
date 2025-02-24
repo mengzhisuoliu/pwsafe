@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -62,8 +62,8 @@ CheckVersion::CheckLatestVersion(const stringT &xml, stringT &latest) const
 
         const stringT variant(pVariant);
         // Determine which variant is relevant for us
-        if ((SysInfo::IsLinux()  && variant == _T("Linux")) ||
-            (!SysInfo::IsLinux() && variant == _T("PC"))) {
+        if ((SysInfo::IsWXUI()  && variant == _T("Linux")) ||
+            (!SysInfo::IsWXUI() && variant == _T("PC"))) {
             const int xmajor = it->attribute(_T("major")).as_int();
             const int xminor = it->attribute(_T("minor")).as_int();
             const int xbuild = it->attribute(_T("build")).as_int();

@@ -1,6 +1,6 @@
 /*
  * Created by Saurav Ghosh
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -21,6 +21,8 @@
 #ifndef _WIN32
 #include <unistd.h>
 #include <termios.h>
+#else
+#include <Windows.h>
 #endif /* _WIN32 */
 
 using namespace std;
@@ -32,11 +34,14 @@ static void echoOn();
 
 #ifndef _WIN32
 static struct termios oldTermioFlags; // to restore tty echo
+#else
+static HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
+static DWORD cmode;
 #endif /* _WIN32 */
 
 static void InitPWPolicy(PWPolicy &pwp, PWScore &core, const UserArgs::FieldUpdates &updates);
 
-int OpenCore(PWScore &core, const StringX &safe, const StringX &passphrase)
+int OpenCore(PWScore &core, const StringX &safe, const StringX &passphrase, bool openReadOnly)
 {
   if (!pws_os::FileExists(safe.c_str())) {
     wcerr << safe << " - file not found" << endl;
@@ -51,7 +56,7 @@ int OpenCore(PWScore &core, const StringX &safe, const StringX &passphrase)
     cout << "CheckPasskey returned: " << status_text(status) << endl;
     return status;
   }
-  {
+  if (!openReadOnly) {
     stringT lk = pws_os::getusername();
     if (!core.LockFile(safe.c_str(), lk)) {
       wcout << L"Couldn't lock file " << safe
@@ -85,7 +90,7 @@ StringX GetPassphrase(const wstring& prompt)
 StringX GetNewPassphrase()
 {
     StringX passphrase[2];
-    wstring prompt[2] = {L"Enter passphrase: ", L"Enter the same passphrase again: "};
+    wstring prompt[2] = {L"Enter passphrase: ", L"\nEnter the same passphrase again: "};
 
     do {
         passphrase[0] = GetPassphrase(prompt[0]);
@@ -119,6 +124,12 @@ static void echoOff()
   if (tcsetattr(fileno(stdin), TCSANOW, &nflags) != 0) {
     wcerr << "Couldn't turn off echo\n";
   }
+#else
+  // Get the current console mode
+  GetConsoleMode(hInput, &cmode);
+
+  // Turn off character echo (ENABLE_ECHO_INPUT flag)
+  SetConsoleMode(hInput, cmode & ~ENABLE_ECHO_INPUT);
 #endif /* _WIN32 */
 }
 
@@ -128,6 +139,10 @@ static void echoOn()
   if (tcsetattr(fileno(stdin), TCSANOW, &oldTermioFlags) != 0) {
     wcerr << "Couldn't restore echo\n";
   }
+#else
+  // Restore the original console mode
+  if (cmode != 0)
+    SetConsoleMode(hInput, cmode);
 #endif /* _WIN32 */
 }
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -41,6 +41,7 @@ struct st_AE_master_data {
   CSecString realpassword;
   CSecString lastpassword;
   CSecString oldRealPassword;
+  CSecString twofactorkey;
   CSecString notes;
   CSecString originalnotesTRC;
   CSecString URL;
@@ -110,6 +111,8 @@ public:
   virtual ~CAddEdit_PropertyPage() {}
 
   virtual BOOL OnQueryCancel();
+  virtual BOOL OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult);
+
 
   static COLORREF crefGreen, crefWhite;
 
@@ -120,6 +123,8 @@ public:
 
   PWScore * &M_pcore() {return m_AEMD.pcore;}
   CItemData * &M_pci() {return m_AEMD.pci;}
+
+  CItemData * M_pci_credential();
 
   StringX &M_currentDB() {return m_AEMD.currentDB;}
 
@@ -132,6 +137,7 @@ public:
   CSecString &M_realpassword() {return m_AEMD.realpassword;}
   CSecString &M_lastpassword() { return m_AEMD.lastpassword; }
   CSecString &M_oldRealPassword() {return m_AEMD.oldRealPassword;}
+  CSecString &M_twofactorkey() {return m_AEMD.twofactorkey;}
   CSecString &M_notes() {return m_AEMD.notes;}
   CSecString &M_originalnotesTRC() {return m_AEMD.originalnotesTRC;}
   CSecString &M_URL() {return m_AEMD.URL;}

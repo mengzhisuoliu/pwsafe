@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -314,6 +314,7 @@ bool PFileXMLProcessor::CheckElementHierachy(int iroot, int icurrent)
         case XLE_PREF_PWMAKEPRONOUNCEABLE:
         case XLE_PREF_LOCKDBONIDLETIMEOUT:
         case XLE_PREF_COPYPASSWORDWHENBROWSETOURL:
+        case XLE_PREF_EXCLUDEFROMSCREENCAPTURE:
         case XLE_PREF_PWDEFAULTLENGTH:
         case XLE_PREF_IDLETIMEOUT:
         case XLE_PREF_TREEDISPLAYSTATUSATOPEN:
@@ -334,6 +335,11 @@ bool PFileXMLProcessor::CheckElementHierachy(int iroot, int icurrent)
         case XLE_TITLE:
         case XLE_USERNAME:
         case XLE_PASSWORD:
+        case XLE_TWOFACTORKEY:
+        case XLE_TOTPCONFIG:
+        case XLE_TOTPSTARTTIME:
+        case XLE_TOTPTIMESTEP:
+        case XLE_TOTPLENGTH:
         case XLE_URL:
         case XLE_AUTOTYPE:
         case XLE_NOTES:
@@ -444,6 +450,7 @@ bool PFileXMLProcessor::CheckElementValue(const TCHAR *value, int icurrent)
   switch(icurrent) {
     case XLE_PREF_LOCKDBONIDLETIMEOUT:
     case XLE_PREF_COPYPASSWORDWHENBROWSETOURL:
+    case XLE_PREF_EXCLUDEFROMSCREENCAPTURE:
     case XLE_PREF_MAINTAINDATETIMESTAMPS:
     case XLE_PREF_PWMAKEPRONOUNCEABLE:
     case XLE_PREF_PWUSEDIGITS:

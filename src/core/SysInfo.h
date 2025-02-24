@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+* Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
 * All rights reserved. Use of the code is allowed under the
 * Artistic License 2.0 terms, as specified in the LICENSE file
 * distributed with this code, or available from
@@ -19,7 +19,7 @@
 // The "effective" is initially set to be == the real value, but
 // may be overridden by the relevant SetEffective*() member function.
 //-----------------------------------------------------------------
-#include "os/typedefs.h"
+#include "../os/typedefs.h"
 
 class SysInfo
 {
@@ -28,7 +28,7 @@ public:
   static void DeleteInstance();
 
   static bool IsUnderPw2go();
-  static bool IsLinux();
+  static bool IsWXUI();
 
   void SetEffectiveUser(const stringT &u) {m_euser = u;}
   void SetEffectiveHost(const stringT &h) {m_esysname = h;}

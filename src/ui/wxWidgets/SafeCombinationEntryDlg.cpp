@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Rony Shapiro <ronys@pwsafe.org>.
+ * Copyright (c) 2003-2025 Rony Shapiro <ronys@pwsafe.org>.
  * All rights reserved. Use of the code is allowed under the
  * Artistic License 2.0 terms, as specified in the LICENSE file
  * distributed with this code, or available from
@@ -33,11 +33,13 @@
 #include "os/env.h"
 
 ////@begin includes
+#include "ExternalKeyboardButton.h"
 #include "PWSafeApp.h"
 #include "SafeCombinationCtrl.h"
 #include "SafeCombinationEntryDlg.h"
 #include "SafeCombinationSetupDlg.h"
 #include "version.h"
+#include "wxUtilities.h"
 ////@end includes
 
 #include <iostream> // for debugging
@@ -76,7 +78,6 @@ BEGIN_EVENT_TABLE( SafeCombinationEntryDlg, wxDialog )
   EVT_BUTTON(   wxID_CANCEL,        SafeCombinationEntryDlg::OnCancel             )
   EVT_COMBOBOX( ID_DBASECOMBOBOX,   SafeCombinationEntryDlg::OnDBSelectionChange  )
   EVT_CHECKBOX( ID_READONLY,        SafeCombinationEntryDlg::OnReadonlyClick      )
-  EVT_CHECKBOX( ID_SHOWCOMBINATION, SafeCombinationEntryDlg::OnShowCombination    )
 ////@end SafeCombinationEntryDlg event table entries
 END_EVENT_TABLE()
 
@@ -104,18 +105,10 @@ SafeCombinationEntryDlg::SafeCombinationEntryDlg(wxWindow *parent, PWScore &core
   {
     GetSizer()->SetSizeHints(this);
   }
-  // Allow to resize the dialog in width, only.
-  //SetMaxSize(wxSize(wxDefaultCoord, GetMinSize().y));
-  // TODO: Check if the previous line of code can be added back.
-  // The line of code was commented out, due to reported issue #674
-  // for Fedora 32 with wxGtk 3.0.4 based on Gtk 3.24.13.
-  // See https://github.com/pwsafe/pwsafe/issues/674
   Centre();
 ////@end SafeCombinationEntryDlg creation
 #ifndef NO_YUBI
-  SetupMixin(FindWindow(ID_YUBIBTN), FindWindow(ID_YUBISTATUS));
-  m_pollingTimer = new wxTimer(this, POLLING_TIMER_ID);
-  m_pollingTimer->Start(YubiMixin::POLLING_INTERVAL);
+  SetupMixin(this, FindWindow(ID_YUBIBTN), FindWindow(ID_YUBISTATUS));
 #endif
 }
 
@@ -133,9 +126,6 @@ SafeCombinationEntryDlg::~SafeCombinationEntryDlg()
 {
 ////@begin SafeCombinationEntryDlg destruction
 ////@end SafeCombinationEntryDlg destruction
-#ifndef NO_YUBI
-  delete m_pollingTimer;
-#endif
 }
 
 /*!
@@ -144,112 +134,105 @@ SafeCombinationEntryDlg::~SafeCombinationEntryDlg()
 
 void SafeCombinationEntryDlg::CreateControls()
 {
-////@begin SafeCombinationEntryDlg content construction
-  SafeCombinationEntryDlg* itemDialog1 = this;
+  auto* mainSizer = new wxBoxSizer(wxHORIZONTAL);
+  this->SetSizer(mainSizer);
 
-  auto *itemBoxSizer2 = new wxBoxSizer(wxHORIZONTAL);
-  itemDialog1->SetSizer(itemBoxSizer2);
+  auto* itemStaticBitmap3 = new wxStaticBitmap(this, wxID_STATIC, GetBitmapResource(wxT("graphics/cpane.xpm")), wxDefaultPosition, ConvertDialogToPixels(wxSize(49, 46)), 0);
+  mainSizer->Add(itemStaticBitmap3, 0, wxALIGN_CENTER_VERTICAL|wxLEFT|wxTOP|wxBOTTOM, 12);
 
-  wxStaticBitmap* itemStaticBitmap3 = new wxStaticBitmap( itemDialog1, wxID_STATIC, itemDialog1->GetBitmapResource(wxT("graphics/cpane.xpm")), wxDefaultPosition, itemDialog1->ConvertDialogToPixels(wxSize(49, 46)), 0 );
-  itemBoxSizer2->Add(itemStaticBitmap3, 0, wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  auto* verticalBoxSizer1 = new wxBoxSizer(wxVERTICAL);
+  mainSizer->Add(verticalBoxSizer1, 1, wxEXPAND|wxALL, 12);
 
-  auto *itemBoxSizer4 = new wxBoxSizer(wxVERTICAL);
-  itemBoxSizer2->Add(itemBoxSizer4, 1, wxEXPAND|wxALL, 5);
+  auto* horizontalBoxSizer1 = new wxBoxSizer(wxHORIZONTAL);
+  verticalBoxSizer1->Add(horizontalBoxSizer1, 0, wxALIGN_CENTER_HORIZONTAL|wxALL, 12);
 
-  auto *itemBoxSizer5 = new wxBoxSizer(wxHORIZONTAL);
-  itemBoxSizer4->Add(itemBoxSizer5, 0, wxALIGN_CENTER_HORIZONTAL|wxALL, 5);
+  auto* itemStaticBitmap6 = new wxStaticBitmap(this, wxID_STATIC, GetBitmapResource(wxT("graphics/psafetxt.xpm")), wxDefaultPosition, wxDefaultSize, 0);
+  horizontalBoxSizer1->Add(itemStaticBitmap6, 0, wxALIGN_CENTER_VERTICAL|wxALL, 5);
 
-  wxStaticBitmap* itemStaticBitmap6 = new wxStaticBitmap( itemDialog1, wxID_STATIC, itemDialog1->GetBitmapResource(wxT("graphics/psafetxt.xpm")), wxDefaultPosition, wxDefaultSize, 0 );
-  itemBoxSizer5->Add(itemStaticBitmap6, 0, wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  m_version = new wxStaticText(this, wxID_STATIC, wxT("VX.YY"), wxDefaultPosition, wxDefaultSize, 0);
+  horizontalBoxSizer1->Add(m_version, 0, wxALIGN_CENTER_VERTICAL|wxALL, 5);
 
-  m_version = new wxStaticText( itemDialog1, wxID_STATIC, wxT("VX.YY"), wxDefaultPosition, wxDefaultSize, 0 );
-  itemBoxSizer5->Add(m_version, 0, wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  auto* itemStaticText8 = new wxStaticText(this, wxID_STATIC, _("Password Database"), wxDefaultPosition, wxDefaultSize, 0);
+  verticalBoxSizer1->Add(itemStaticText8, 0, wxALIGN_LEFT|wxBOTTOM|wxTOP, 5);
 
-  wxStaticText* itemStaticText8 = new wxStaticText( itemDialog1, wxID_STATIC, _("Open Password Database:"), wxDefaultPosition, wxDefaultSize, 0 );
-  itemBoxSizer4->Add(itemStaticText8, 0, wxALIGN_LEFT|wxALL, 3);
-
-  auto *itemBoxSizer9 = new wxBoxSizer(wxHORIZONTAL);
-  itemBoxSizer4->Add(itemBoxSizer9, 0, wxEXPAND|wxALL, 0);
+  auto* horizontalBoxSizer2 = new wxBoxSizer(wxHORIZONTAL);
+  verticalBoxSizer1->Add(horizontalBoxSizer2, 0, wxEXPAND|wxBOTTOM, 12);
 
   wxArrayString m_filenameCBStrings;
-  m_filenameCB = new wxComboBox( itemDialog1, ID_DBASECOMBOBOX, wxEmptyString, wxDefaultPosition, wxSize(itemDialog1->ConvertDialogToPixels(wxSize(150, -1)).x, -1), m_filenameCBStrings, wxCB_DROPDOWN );
-  itemBoxSizer9->Add(m_filenameCB, 1, wxEXPAND|wxTOP|wxBOTTOM, 5);
+  m_filenameCB = new wxComboBox(this, ID_DBASECOMBOBOX, wxEmptyString, wxDefaultPosition, wxSize(ConvertDialogToPixels(wxSize(150, -1)).x, -1), m_filenameCBStrings, wxCB_DROPDOWN);
+  horizontalBoxSizer2->Add(m_filenameCB, 1, wxEXPAND|wxBOTTOM, 5);
 
-  wxButton* itemButton11 = new wxButton( itemDialog1, ID_ELLIPSIS, wxT("..."), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT );
-  itemBoxSizer9->Add(itemButton11, 0, wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  auto* browseButton = new wxButton(this, ID_ELLIPSIS, wxT(" ... "), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+  browseButton->SetToolTip(_("Browse for an existing password database"));
+  horizontalBoxSizer2->Add(browseButton, 0, wxEXPAND|wxLEFT|wxBOTTOM, 5);
 
-  wxStaticText* itemStaticText12 = new wxStaticText( itemDialog1, wxID_STATIC, _("Safe Combination:"), wxDefaultPosition, wxDefaultSize, 0 );
-  itemBoxSizer4->Add(itemStaticText12, 0, wxALIGN_LEFT|wxALL, 3);
+  auto* newButton = new wxButton(this, ID_NEWDB, wxT(" ") + _("New...") + wxT(" "), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+  newButton->SetToolTip(_("Create a new password database"));
+  horizontalBoxSizer2->Add(newButton, 0, wxEXPAND|wxLEFT|wxBOTTOM|wxRIGHT, 5);
 
-  auto itemBoxSizer10 = new wxBoxSizer(wxHORIZONTAL);
-  m_combinationEntry = new SafeCombinationCtrl( itemDialog1, ID_COMBINATION, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0 );
+  auto* itemStaticText12 = new wxStaticText(this, wxID_STATIC, _("Master Password"), wxDefaultPosition, wxDefaultSize, 0);
+  verticalBoxSizer1->Add(itemStaticText12, 0, wxALIGN_LEFT|wxBOTTOM, 5);
+
+  m_combinationEntry = new SafeCombinationCtrl(this, ID_COMBINATION, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0);
   m_combinationEntry->SetFocus();
-  itemBoxSizer10->Add(m_combinationEntry, 1, wxEXPAND|wxRIGHT|wxTOP|wxBOTTOM, 5);
+  verticalBoxSizer1->Add(m_combinationEntry, 0, wxEXPAND|wxBOTTOM, 12);
 
-#ifndef NO_YUBI
-  m_YubiBtn = new wxBitmapButton( itemDialog1, ID_YUBIBTN, itemDialog1->GetBitmapResource(wxT("graphics/Yubikey-button.xpm")), wxDefaultPosition, itemDialog1->ConvertDialogToPixels(wxSize(40, 12)), wxBU_AUTODRAW );
-  itemBoxSizer10->Add(m_YubiBtn, 0, wxALIGN_CENTER|wxLEFT|wxRIGHT|wxSHAPED, 5);
-#endif
-  itemBoxSizer4->Add(itemBoxSizer10, 0, wxEXPAND, 0);
-
-  auto *itemBoxSizer14 = new wxBoxSizer(wxHORIZONTAL);
-  itemBoxSizer4->Add(itemBoxSizer14, 0, wxEXPAND|wxALL, 5);
-
-  wxCheckBox* itemCheckBox15 = new wxCheckBox( itemDialog1, ID_READONLY, _("Open as read-only"), wxDefaultPosition, wxDefaultSize, 0 );
+  auto* itemCheckBox15 = new wxCheckBox(this, ID_READONLY, _("Open as read-only"), wxDefaultPosition, wxDefaultSize, 0);
   itemCheckBox15->SetValue(false);
-  itemBoxSizer14->Add(itemCheckBox15, 0, wxALIGN_CENTER_VERTICAL|wxALL, 0);
-
-  itemBoxSizer14->AddSpacer(25);
-  itemBoxSizer14->AddStretchSpacer();
-
-  wxCheckBox* itemCheckBox16 = new wxCheckBox( itemDialog1, ID_SHOWCOMBINATION, _("Show Combination"), wxDefaultPosition, wxDefaultSize, 0 );
-  itemCheckBox16->SetValue(false);
-  itemBoxSizer14->Add(itemCheckBox16, 0, wxALIGN_CENTER_VERTICAL|wxALL, 0);
-
-  wxButton* itemButton17 = new wxButton( itemDialog1, ID_NEWDB, _("New..."), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT );
-  itemBoxSizer14->Add(itemButton17, 0, wxALIGN_CENTER_VERTICAL|wxLEFT|wxTOP|wxBOTTOM, 5);
-
-  auto *itemBoxSizer18 = new wxBoxSizer(wxHORIZONTAL);
-  itemBoxSizer4->Add(itemBoxSizer18, 0, wxEXPAND|wxALL, 5);
+  verticalBoxSizer1->Add(itemCheckBox15, 0, wxALIGN_LEFT|wxBOTTOM, 12);
 
 #ifndef NO_YUBI
-  m_yubiStatusCtrl = new wxStaticText( itemDialog1, ID_YUBISTATUS, _("Please insert your YubiKey"), wxDefaultPosition, wxDefaultSize, 0 );
-  itemBoxSizer18->Add(m_yubiStatusCtrl, 0, wxALIGN_CENTER_VERTICAL|wxALL, 5);
+  auto* panel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxSize(-1,  35));
+  verticalBoxSizer1->Add(panel, 0, wxEXPAND|wxBOTTOM, 12);
+
+  auto* horizontalBoxSizer3 = new wxBoxSizer(wxHORIZONTAL);
+  panel->SetSizer(horizontalBoxSizer3);
+
+  m_YubiBtn = new wxBitmapButton(panel, ID_YUBIBTN, GetBitmapResource(wxT("graphics/Yubikey-button.xpm")), wxDefaultPosition, wxSize(35,  35), wxBU_AUTODRAW);
+  horizontalBoxSizer3->Add(m_YubiBtn, 0, wxALL|wxALIGN_CENTER|wxALIGN_LEFT, 0);
+
+  m_yubiStatusCtrl = new wxStaticText(panel, ID_YUBISTATUS, _("Insert your YubiKey"), wxDefaultPosition, wxDefaultSize, 0);
+  horizontalBoxSizer3->Add(m_yubiStatusCtrl, 0, wxLEFT|wxALIGN_CENTER|wxALIGN_LEFT, 12);
 #endif
 
-  itemBoxSizer4->AddStretchSpacer();
+  verticalBoxSizer1->AddStretchSpacer();
 
-  auto *itemStdDialogButtonSizer21 = new wxStdDialogButtonSizer;
+  auto* horizontalBoxSizer4 = new wxBoxSizer(wxHORIZONTAL);
+  verticalBoxSizer1->Add(horizontalBoxSizer4, 0, wxEXPAND|wxALL, 0);
 
-  itemBoxSizer4->Add(itemStdDialogButtonSizer21, 0, wxEXPAND|wxALL, 5);
-  wxButton* itemButton22 = new wxButton( itemDialog1, wxID_OK, _("&OK"), wxDefaultPosition, wxDefaultSize, 0 );
-  itemButton22->SetDefault();
-  itemStdDialogButtonSizer21->AddButton(itemButton22);
+  auto* helpButton = new wxButton(this, wxID_HELP, _("&Help"), wxDefaultPosition, wxDefaultSize, 0);
+  horizontalBoxSizer4->Add(
+    helpButton,
+    0, wxALIGN_LEFT|wxALL, 0
+  );
 
-  wxButton* itemButton23 = new wxButton( itemDialog1, wxID_CANCEL, _("&Cancel"), wxDefaultPosition, wxDefaultSize, 0 );
-  itemStdDialogButtonSizer21->AddButton(itemButton23);
+  horizontalBoxSizer4->AddSpacer(60);
 
-  wxButton* itemButton24 = new wxButton( itemDialog1, wxID_HELP, _("&Help"), wxDefaultPosition, wxDefaultSize, 0 );
-  itemStdDialogButtonSizer21->AddButton(itemButton24);
+  auto* itemStdDialogButtonSizer21 = new wxStdDialogButtonSizer;
+
+  horizontalBoxSizer4->Add(itemStdDialogButtonSizer21, 1, wxEXPAND|wxALL, 0);
+  auto* okButton = new wxButton(this, wxID_OK, _("&OK"), wxDefaultPosition, wxDefaultSize, 0);
+  okButton->SetDefault();
+  itemStdDialogButtonSizer21->AddButton(okButton);
+
+  auto* cancelButton = new wxButton(this, wxID_CANCEL, _("&Cancel"), wxDefaultPosition, wxDefaultSize, 0);
+  itemStdDialogButtonSizer21->AddButton(cancelButton);
 
   itemStdDialogButtonSizer21->Realize();
 
+  if (wxUtilities::IsVirtualKeyboardSupported()) {
+    auto *keyboardButton = new ExternalKeyboardButton(this);
+    keyboardButton->SetFocusOnSafeCombinationCtrl(m_combinationEntry);
+    horizontalBoxSizer4->Add(
+      keyboardButton,
+      0, wxALIGN_CENTER_VERTICAL|wxALL, 0
+    );
+  }
+
   // Set validators
-  m_filenameCB->SetValidator( wxGenericValidator(& m_filename) );
-  itemCheckBox15->SetValidator( wxGenericValidator(& m_readOnly) );
+  itemCheckBox15->SetValidator( wxGenericValidator(& m_readOnly));
 ////@end SafeCombinationEntryDlg content construction
   m_combinationEntry->SetValidatorTarget(& m_password);
-
-  // Event handler to show full path of filename as tooltip.
-  m_filenameCB->Bind(wxEVT_MOTION, [&](wxMouseEvent& WXUNUSED(event)) {
-    m_filenameCB->SetToolTip(m_filename);
-  });
-
-  // Event handler to shorten the file path name if it doesn't fit into the combobox.
-  m_filenameCB->Bind(wxEVT_COMBOBOX, [&](wxCommandEvent& WXUNUSED(event)) {
-    m_filename = m_filenameCB->GetValue(); // Update for tooltip which shows the full path
-    // EllipsizeFilePathname is build up in wxEVT_KILL_FOCUS
-  });
 
   // Event handler to show the full file path name for editing if text entry field of combobox got the focus.
   m_filenameCB->Bind(wxEVT_SET_FOCUS, [&](wxFocusEvent& WXUNUSED(event)) {
@@ -258,44 +241,32 @@ void SafeCombinationEntryDlg::CreateControls()
 
   // Event handler if text entry field of combobox lost the focus.
   m_filenameCB->Bind(wxEVT_KILL_FOCUS, [&](wxFocusEvent& WXUNUSED(event)) {
-    wxString filename;
-    filename = m_filenameCB->GetValue(); // The user may have changed the file name or path manually.
-    m_filenameCB->ChangeValue(EllipsizeFilePathname(filename));
-    m_filename = filename; // Set m_filename after update, as wxEVT_TEXT event will change
+    wxString old_filename = m_filename;
+    m_filename = m_filenameCB->GetValue(); // The user may have changed the file name or path manually.
+    EllipsizeFilePathname();
+    if (old_filename != m_filename)
+      UpdateReadOnlyCheckbox(); // Only call this if the filename actually changed.
   });
 
   // Event handler to update the file path name string if the size of the combobox changed.
   m_filenameCB->Bind(wxEVT_SIZE, [&](wxSizeEvent& WXUNUSED(event)) {
     // Don't irritate the user with shortening the path if the text entry box has the focus for manual editing.
     if (!m_filenameCB->HasFocus()) {
-      wxString filename = m_filename;
-      m_filenameCB->ChangeValue(EllipsizeFilePathname(m_filename));
-      m_filename = filename; // Set m_filename after update, as wxEVT_TEXT event will change
-    }
-  });
-
-  // Event handler to update the internal member that is used to show the tooltip.
-  m_filenameCB->Bind(wxEVT_TEXT, [&](wxCommandEvent& WXUNUSED(event)) {
-    if (m_filenameCB->HasFocus()) {
-      m_filename = m_filenameCB->GetValue(); // The user may have changed the file name or path manually.
+      EllipsizeFilePathname();
     }
   });
 
 #if (REVISION == 0)
-  m_version->SetLabel(wxString::Format(wxT("V%d.%.2d %ls"),
+  m_version->SetLabel(wxString::Format(wxT("V%d.%d %ls"),
                                        MAJORVERSION, MINORVERSION, SPECIALBUILD));
 #else
-  m_version->SetLabel(wxString::Format(wxT("V%d.%d.%.2d %ls"),
+  m_version->SetLabel(wxString::Format(wxT("V%d.%d.%d %ls"),
                                        MAJORVERSION, MINORVERSION,
                                        REVISION, SPECIALBUILD));
 #endif
   wxArrayString recentFiles;
   wxGetApp().recentDatabases().GetAll(recentFiles);
   m_filenameCB->Append(recentFiles);
-  // The underlying native combobox widget might not yet be ready
-  //  to hand back the string we just added
-  wxCommandEvent cmdEvent(wxEVT_COMBOBOX, m_filenameCB->GetId());
-  GetEventHandler()->AddPendingEvent(cmdEvent);
   SetIcons(wxGetApp().GetAppIcons());
 }
 
@@ -305,10 +276,9 @@ void SafeCombinationEntryDlg::OnActivate( wxActivateEvent& event )
   if (!m_postInitDone) {
     // if filename field not empty, set focus to password:
     if (!m_filename.empty()) {
-      wxString filename = m_filename;
       FindWindow(ID_COMBINATION)->SetFocus();
-      m_filenameCB->ChangeValue(EllipsizeFilePathname(m_filename));
-      m_filename = filename; // Set m_filename after update, as wxEVT_TEXT event will change
+      EllipsizeFilePathname();
+      UpdateReadOnlyCheckbox();
     }
     m_postInitDone = true;
   }
@@ -370,30 +340,28 @@ wxIcon SafeCombinationEntryDlg::GetIconResource( const wxString& WXUNUSED(name) 
 
 void SafeCombinationEntryDlg::OnOk( wxCommandEvent& )
 {
-  // For the validation process, put the full file path name back into the combo box.
-  m_filenameCB->ChangeValue(m_filename);
-
   if (Validate() && TransferDataFromWindow()) {
     if (m_password.empty()) {
       wxMessageDialog err(this, _("The combination cannot be blank."),
                           _("Error"), wxOK | wxICON_EXCLAMATION);
       err.ShowModal();
       FindWindow(ID_COMBINATION)->SetFocus();
-      return;
-    }
-    if (!pws_os::FileExists(tostdstring(m_filename))) {
+
+    } else if (!pws_os::FileExists(tostdstring(m_filename))) {
       wxMessageDialog err(this, _("File or path not found."),
                           _("Error"), wxOK | wxICON_EXCLAMATION);
       err.ShowModal();
       m_filenameCB->SetFocus();
-      return;
+
+    } else if (ProcessPhrase()) {
+      EndModal(wxID_OK);
     }
-    ProcessPhrase();
-  } // Validate && TransferDataFromWindow
+  }
 }
 
-void SafeCombinationEntryDlg::ProcessPhrase()
+bool SafeCombinationEntryDlg::ProcessPhrase()
 {
+  static unsigned tries = 0;
   int status = m_core.CheckPasskey(tostringx(m_filename), m_password);
   wxString errmess;
   switch (status) {
@@ -433,8 +401,7 @@ void SafeCombinationEntryDlg::ProcessPhrase()
     m_core.SetReadOnly(m_readOnly);
     m_core.SetCurFile(tostringx(m_filename));
     wxGetApp().recentDatabases().AddFileToHistory(m_filename);
-    EndModal(wxID_OK);
-    return;
+    return true;
   }
   case PWScore::CANT_OPEN_FILE: {
     stringT str;
@@ -444,26 +411,29 @@ void SafeCombinationEntryDlg::ProcessPhrase()
     break;
   case PWScore::WRONG_PASSWORD:
   default:
-    if (m_tries++ >= 2) {
-      errmess = _("Too many retries - exiting");
+    if (++tries > 2) {
+      errmess = wxString::Format(_("The master password has been entered %d times without success:\n"), tries);
+      errmess += _("- Is Caps Lock off?\n");
+      errmess += _("- Is the language correct (if multilingual)?\n");
+      errmess += _("- Is this the correct database?\n");
+      errmess += _("- Perhaps the database was damaged. Try opening a backup copy.");
     } else {
-      errmess = _("Incorrect passkey, not a PasswordSafe database, or a corrupt database. (Backup database has same name as original, ending with '~')");
+      errmess =  _("Incorrect master password,\n");
+      errmess += _("not a Password Safe database,\n");
+      errmess += _("or a corrupt database.");
     }
     break;
   } // switch (status)
     // here iff CheckPasskey failed.
   wxMessageDialog err(this, errmess,
-                      _("Error"), wxOK | wxICON_EXCLAMATION);
+                      _("Can't open a password database"), wxOK | wxICON_EXCLAMATION);
   err.ShowModal();
-  if (m_tries >= 3) {
-    EndModal(wxCANCEL);
-  } else {
-    auto *txt = wxDynamicCast(FindWindow(ID_COMBINATION), wxTextCtrl);
-    if (txt) {
-      txt->SetSelection(-1,-1);
-      txt->SetFocus();
-    }
+  auto *txt = wxDynamicCast(FindWindow(ID_COMBINATION), wxTextCtrl);
+  if (txt) {
+    txt->SetSelection(-1,-1);
+    txt->SetFocus();
   }
+  return false;
 }
 
 /*!
@@ -484,23 +454,21 @@ void SafeCombinationEntryDlg::OnCancel( wxCommandEvent& event )
 
 void SafeCombinationEntryDlg::OnEllipsisClick(wxCommandEvent& WXUNUSED(evt))
 {
-  wxFileDialog fd(this, _("Please Choose a Database to Open:"),
+  wxFileDialog fd(this, _("Open Password Database"),
                   PWSdirs::GetSafeDir().c_str(), wxEmptyString,
                   _("Password Safe Databases (*.psafe4; *.psafe3; *.dat)|*.psafe4;*.psafe3;*.dat| All files (*.*; *)|*.*;*"),
                   (wxFD_OPEN | wxFD_FILE_MUST_EXIST | wxFD_CHANGE_DIR));
 
   if (fd.ShowModal() == wxID_OK) {
-    wxString filename;
-    filename = fd.GetPath();
+    m_filename = fd.GetPath();
     auto *cb = dynamic_cast<wxComboBox *>(FindWindow(ID_DBASECOMBOBOX));
     if (cb->HasFocus()) {
-      cb->ChangeValue(filename); // Will be changed to EllipsizeFilePathname in wxEVT_KILL_FOCUS
+      cb->ChangeValue(m_filename); // Will be changed to EllipsizeFilePathname in wxEVT_KILL_FOCUS
     }
     else {
-      cb->ChangeValue(EllipsizeFilePathname(filename));
+      EllipsizeFilePathname();
     }
     UpdateReadOnlyCheckbox();
-    m_filename = filename;
   }
 }
 
@@ -531,7 +499,7 @@ void SafeCombinationEntryDlg::DoNewDbClick()
     return;
 
   while (true) {
-    wxFileDialog fd(this, _("Please choose a name for the new database"),
+    wxFileDialog fd(this, _("Choose a name for the new database"),
                     dir.c_str(), v3FileName.c_str(),
                     _("Password Safe Databases (*.psafe3; *.dat)|*.psafe3;*.dat| All files (*.*; *)|*.*;*"),
                   (wxFD_SAVE | wxFD_OVERWRITE_PROMPT| wxFD_CHANGE_DIR));
@@ -589,8 +557,8 @@ void SafeCombinationEntryDlg::DoNewDbClick()
   }
 
   m_core.SetReadOnly(false); // new file can't be read-only...
-  m_core.NewFile(tostringx(pksetup->GetPassword()));
-  m_password = tostringx(pksetup->GetPassword());
+  m_core.NewFile(pksetup->GetPassword());
+  m_password = pksetup->GetPassword();
 
   if (m_core.WriteCurFile() == PWSfile::SUCCESS) {
     wxGetApp().recentDatabases().AddFileToHistory(newfile);
@@ -611,24 +579,23 @@ void SafeCombinationEntryDlg::OnYubibtnClick(wxCommandEvent& WXUNUSED(event))
 {
   m_combinationEntry->AllowEmptyCombinationOnce();  // Allow blank password when Yubi's used
 
-  // For the validation process, put the full file path name back into the combo box.
-  m_filenameCB->ChangeValue(m_filename);
-
   if (Validate() && TransferDataFromWindow()) {
     if (!pws_os::FileExists(tostdstring(m_filename))) {
       wxMessageDialog err(this, _("File or path not found."),
                           _("Error"), wxOK | wxICON_EXCLAMATION);
       err.ShowModal();
       m_filenameCB->SetFocus();
-      return;
-    }
 
-    StringX response;
-    bool oldYubiChallenge = ::wxGetKeyState(WXK_SHIFT); // for pre-0.94 databases
-    if (PerformChallengeResponse(this, m_password, response, oldYubiChallenge)) {
-      m_password = response;
-      ProcessPhrase();
-      UpdateStatus();
+    } else {
+      StringX response;
+      bool oldYubiChallenge = ::wxGetKeyState(WXK_SHIFT); // for pre-0.94 databases
+      if (PerformChallengeResponse(this, m_password, response, oldYubiChallenge)) {
+        m_password = response;
+        if (ProcessPhrase()) {
+          EndModal(wxID_OK);
+        }
+        UpdateStatus();
+      }
     }
   }
 }
@@ -643,12 +610,19 @@ void SafeCombinationEntryDlg::OnPollingTimer(wxTimerEvent &evt)
 
 void SafeCombinationEntryDlg::OnDBSelectionChange(wxCommandEvent& WXUNUSED(event))
 {
+  m_filename = m_filenameCB->GetValue(); // Update for tooltip which shows the full path
+  m_filenameCB->SetToolTip(m_filename);
+  // On Linux, after selecting from the list nothing has focus, so the name should be ellipsized.
+  // On macOS, the combobox keeps focus, so this will be skipped
+  if (!m_filenameCB->HasFocus()) {
+    EllipsizeFilePathname();
+  }
   UpdateReadOnlyCheckbox();
 }
 
 void SafeCombinationEntryDlg::UpdateReadOnlyCheckbox()
 {
-  wxFileName fn(m_filenameCB->GetValue());
+  wxFileName fn(m_filename);
 
   // Do nothing if the file doesn't exist
   if ( fn.FileExists() ) {
@@ -657,7 +631,11 @@ void SafeCombinationEntryDlg::UpdateReadOnlyCheckbox()
     wxCheckBox *ro = wxDynamicCast(FindWindow(ID_READONLY), wxCheckBox);
     wxASSERT_MSG(ro, wxT("Could not get RO checkbox"));
     if (ro) {
-      ro->SetValue( writeable? (m_core.IsReadOnly() || defaultRO) : true );
+      // On macOS, the initial state of the checkbox won't be set unless we set the variable.
+      // I suspect it has to do with validator action after OnActivate() returns.
+      // It seems like a good thing to do in any case.
+      m_readOnly = writeable ? (m_core.IsReadOnly() || defaultRO) : true;
+      ro->SetValue(m_readOnly);
       ro->Enable(writeable);
     }
     UpdateNew(!writeable || defaultRO);
@@ -679,26 +657,22 @@ void SafeCombinationEntryDlg::OnReadonlyClick( wxCommandEvent& event )
   UpdateNew(m_readOnly);
 }
 
-/*!
- * wxEVT_COMMAND_CHECKBOX_CLICKED event handler for ID_SHOWCOMBINATION
- */
-
-void SafeCombinationEntryDlg::OnShowCombination( wxCommandEvent& event )
+void SafeCombinationEntryDlg::EllipsizeFilePathname()
 {
-  m_combinationEntry->SecureTextfield(!event.IsChecked());
-}
+  // Make sure the tooltip has the current full filename
+  m_filenameCB->SetToolTip(m_filename);
 
-wxString SafeCombinationEntryDlg::EllipsizeFilePathname(const wxString& filename)
-{
-  if (filename.IsEmpty()) {
-    return filename;
+  if (m_filename.IsEmpty()) {
+    return;
   }
 
   wxScreenDC dc;
 
-  return m_filenameCB->Ellipsize(
-    filename, dc, wxEllipsizeMode::wxELLIPSIZE_MIDDLE,
-    /* The limiting width for the text is the combobox width reduced by the drop-down button width and margins. */
-    (m_filenameCB->GetSize()).GetWidth() - 50
+  m_filenameCB->ChangeValue(
+    wxControl::Ellipsize(
+      m_filename, dc, wxEllipsizeMode::wxELLIPSIZE_MIDDLE,
+      /* The limiting width for the text is the combobox width reduced by the drop-down button width and margins. */
+      (m_filenameCB->GetSize()).GetWidth() - 50
+    )
   );
 }
